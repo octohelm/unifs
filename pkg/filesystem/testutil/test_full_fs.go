@@ -21,7 +21,7 @@ const (
 	infiniteDepth = -1
 )
 
-func TestFS(t *testing.T, fs filesystem.FileSystem) {
+func TestFullFS(t *testing.T, fs filesystem.FileSystem) {
 	errStr := func(err error) string {
 		switch {
 		case os.IsExist(err):

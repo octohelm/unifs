@@ -22,9 +22,7 @@ func ParseEndpoint(text string) (*Endpoint, error) {
 		endpoint.Extra = u.Query()
 	}
 
-	if len(u.Path) > 0 {
-		endpoint.Base = strings.Split(u.Path[1:], "/")[0]
-	}
+	endpoint.Path = u.Path
 
 	endpoint.Hostname = u.Hostname()
 
@@ -46,10 +44,17 @@ type Endpoint struct {
 	Scheme   string
 	Hostname string
 	Port     uint16
-	Base     string
+	Path     string
 	Username string
 	Password string
 	Extra    url.Values
+}
+
+func (e Endpoint) Base() string {
+	if e.Path != "" {
+		return strings.Split(e.Path[1:], "/")[0]
+	}
+	return ""
 }
 
 func (e Endpoint) IsZero() bool {
@@ -77,9 +82,7 @@ func (e Endpoint) String() string {
 		u.RawQuery = e.Extra.Encode()
 	}
 
-	if e.Base != "" {
-		u.Path = "/" + e.Base
-	}
+	u.Path = e.Path
 
 	if e.Username != "" || e.Password != "" {
 		u.User = url.UserPassword(e.Username, e.Password)

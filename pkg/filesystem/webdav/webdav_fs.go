@@ -15,14 +15,24 @@ import (
 	"github.com/octohelm/unifs/pkg/filesystem/webdav/client"
 )
 
-func NewWebdavFS(endpoint string) filesystem.FileSystem {
+func NewWebdavFS(c client.Client) filesystem.FileSystem {
 	return &webdavfs{
-		c: client.NewClient(endpoint),
+		c: c,
 	}
 }
 
 type webdavfs struct {
 	c client.Client
+}
+
+func (fs *webdavfs) addNode(fi filesystem.FileInfo) *node {
+	return &node{
+		root:    fs,
+		name:    fi.Name(),
+		mode:    fi.Mode(),
+		size:    fi.Size(),
+		modTime: fi.ModTime(),
+	}
 }
 
 func (fs *webdavfs) Mkdir(ctx context.Context, name string, perm os.FileMode) error {
@@ -33,6 +43,7 @@ func (fs *webdavfs) Mkdir(ctx context.Context, name string, perm os.FileMode) er
 			Err:  os.ErrExist,
 		}
 	}
+
 	f, err := fs.OpenFile(ctx, fmt.Sprintf("%s/", path.Clean(name)), os.O_CREATE, perm)
 	if err != nil {
 		return err
@@ -40,26 +51,6 @@ func (fs *webdavfs) Mkdir(ctx context.Context, name string, perm os.FileMode) er
 	_ = f.Close()
 	return nil
 
-}
-
-func (fs *webdavfs) OpenFile(ctx context.Context, name string, flag int, perm os.FileMode) (webdav.File, error) {
-	if flag&os.O_APPEND != 0 {
-		return nil, errors.New("not support")
-	}
-
-	if flag&os.O_CREATE != 0 {
-		flag |= os.O_WRONLY
-	}
-
-	if strings.HasSuffix(name, "/") {
-		return openDir(ctx, fs, name)
-	}
-
-	if flag&os.O_WRONLY != 0 {
-		return openFileForWrite(ctx, fs, name)
-	}
-
-	return openFileForRead(ctx, fs, name)
 }
 
 func (fs *webdavfs) RemoveAll(ctx context.Context, name string) error {
@@ -73,29 +64,11 @@ func (fs *webdavfs) Rename(ctx context.Context, oldName, newName string) error {
 	if newName == oldName {
 		return nil
 	}
-
-	if strings.HasPrefix(newName, oldName) {
-		return &os.LinkError{
-			Op:  "rename",
-			Old: oldName,
-			New: newName,
-			Err: os.ErrPermission,
-		}
-	}
-
-	if strings.Contains(strings.TrimLeft(newName, "/"), "/") {
-		if err := fs.Mkdir(ctx, filepath.Dir(newName), os.ModeDir); err != nil {
-			if !os.IsExist(err) {
-				return err
-			}
-		}
-	}
-
 	return fs.c.Move(ctx, oldName, newName, false)
 }
 
 func (fs *webdavfs) Stat(ctx context.Context, name string) (os.FileInfo, error) {
-	ms, err := fs.c.PropFind(ctx, name, 0, fileInfoPropFind)
+	ms, err := fs.c.PropFind(ctx, name, 0, client.FileInfoPropFind)
 	if err != nil {
 		return nil, err
 	}
@@ -118,4 +91,84 @@ func (fs *webdavfs) Stat(ctx context.Context, name string) (os.FileInfo, error) 
 	}
 
 	return info, nil
+}
+
+func (fs *webdavfs) OpenFile(ctx context.Context, name string, flag int, perm os.FileMode) (webdav.File, error) {
+	if flag&os.O_APPEND != 0 {
+		return nil, ErrNotSupported
+	}
+
+	if flag&os.O_CREATE != 0 {
+		flag |= os.O_WRONLY
+	}
+
+	if strings.HasSuffix(name, "/") {
+		return fs.openDir(ctx, name)
+	}
+
+	return fs.openFile(ctx, name, flag)
+}
+
+func (fs *webdavfs) openDir(ctx context.Context, name string) (filesystem.File, error) {
+	fi, err := fs.Stat(ctx, name)
+	if err != nil {
+		if os.IsNotExist(err) {
+			if parent := filepath.Dir(strings.TrimRight(name, "/")); parent != "/" {
+				if _, err := fs.Stat(ctx, parent); err != nil {
+					return nil, err
+				}
+			}
+			if err := fs.c.MkCol(ctx, name); err != nil {
+				return nil, err
+			}
+			fi, err := fs.Stat(ctx, name)
+			if err != nil {
+				return nil, err
+			}
+			return &file{node: fs.addNode(fi)}, nil
+		}
+		return nil, err
+	}
+	if !fi.IsDir() {
+		return nil, &os.PathError{
+			Op:   "stat",
+			Path: name,
+			Err:  os.ErrExist,
+		}
+	}
+	return &file{node: fs.addNode(fi)}, nil
+}
+
+func (fs *webdavfs) openFile(ctx context.Context, name string, flag int) (filesystem.File, error) {
+	// check parent path when create
+	if flag&os.O_CREATE != 0 {
+		if parent := filepath.Dir(strings.TrimRight(name, "/")); parent != "/" {
+			if _, err := fs.Stat(ctx, parent); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	f := &file{
+		node: &node{
+			root: fs,
+			name: name,
+		},
+	}
+
+	if flag&os.O_WRONLY != 0 || flag&os.O_RDWR != 0 {
+		w, err := fs.c.OpenWrite(context.Background(), f.Name())
+		if err != nil {
+			return nil, err
+		}
+		f.writer = w
+	} else {
+		ff, err := fs.c.Open(context.Background(), f.Name())
+		if err != nil {
+			return nil, err
+		}
+		f.file = ff
+	}
+
+	return f, nil
 }

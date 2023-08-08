@@ -8,9 +8,9 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/minio/minio-go/v7"
-	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/octohelm/unifs/pkg/filesystem"
@@ -29,7 +29,7 @@ func openDir(ctx context.Context, fs *s3fs, name string) (filesystem.File, error
 				}
 			}
 
-			_, err := fs.c.PutObject(ctx, fs.bucket, path.Join(name, dirHolder), bytes.NewBuffer(nil), 0, minio.PutObjectOptions{})
+			_, err := fs.c.PutObject(ctx, fs.bucket, fs.path(path.Join(name, dirHolder)), bytes.NewBuffer(nil), 0, minio.PutObjectOptions{})
 			if err != nil {
 				return nil, err
 			}
@@ -50,7 +50,7 @@ func openDir(ctx context.Context, fs *s3fs, name string) (filesystem.File, error
 
 const dirHolder = ".fs_dir"
 
-func openFileForWrite(ctx context.Context, fs *s3fs, name string) (filesystem.File, error) {
+func openFileForWrite(ctx context.Context, fs *s3fs, name string, flags int) (filesystem.File, error) {
 	if parent := filepath.Dir(strings.TrimRight(name, "/")); parent != "/" {
 		if _, err := fs.Stat(ctx, parent); err != nil {
 			return nil, err
@@ -65,11 +65,25 @@ func openFileForWrite(ctx context.Context, fs *s3fs, name string) (filesystem.Fi
 	f.streamWriterErrCh = make(chan error)
 
 	go func() {
-		_, err := f.fs.c.PutObject(f.ctx, f.fs.bucket, f.name, reader, -1, minio.PutObjectOptions{})
+		var err error
+		defer func() {
+			f.streamWriterErrCh <- err
+		}()
+
+		if flags&os.O_CREATE != 0 {
+			// when create new file
+			// to put 0x00 as placeholder
+			_, err := f.fs.c.PutObject(f.ctx, f.fs.bucket, f.fs.path(f.name), bytes.NewBuffer([]byte{0x00}), 1, minio.PutObjectOptions{})
+			if err != nil {
+				_ = writer.Close()
+				return
+			}
+		}
+
+		_, err = f.fs.c.PutObject(f.ctx, f.fs.bucket, f.fs.path(f.name), reader, -1, minio.PutObjectOptions{})
 		if err != nil {
 			_ = writer.Close()
 		}
-		f.streamWriterErrCh <- errors.Wrapf(err, "write %s failed", f.name)
 	}()
 
 	return f, nil
@@ -78,7 +92,7 @@ func openFileForWrite(ctx context.Context, fs *s3fs, name string) (filesystem.Fi
 func openFileForRead(ctx context.Context, fs *s3fs, name string) (filesystem.File, error) {
 	f := &file{ctx: ctx, fs: fs, name: name}
 
-	o, err := fs.c.GetObject(ctx, fs.bucket, name, minio.GetObjectOptions{})
+	o, err := fs.c.GetObject(ctx, fs.bucket, fs.path(name), minio.GetObjectOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -99,6 +113,8 @@ type file struct {
 	// writer
 	streamWriter      *io.PipeWriter
 	streamWriterErrCh chan error
+
+	mu sync.Mutex
 }
 
 func (f *file) Name() string { return f.name }
@@ -106,7 +122,7 @@ func (f *file) Name() string { return f.name }
 func (f *file) Readdir(n int) ([]os.FileInfo, error) {
 	// ListObjects treats leading slashes as part of the directory name
 	// It also needs a trailing slash to list contents of a directory.
-	name := strings.TrimPrefix(f.Name(), "/")
+	name := strings.TrimPrefix(f.fs.path(f.Name()), "/")
 
 	// For the root of the bucket, we need to remove any prefix
 	if name != "" && !strings.HasSuffix(name, "/") {
@@ -162,6 +178,9 @@ func (f *file) Stat() (os.FileInfo, error) {
 }
 
 func (f *file) Seek(offset int64, whence int) (int64, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
 	return f.object.Seek(offset, whence)
 }
 
@@ -169,6 +188,8 @@ func (f *file) Read(p []byte) (int, error) {
 	if f.object == nil {
 		return -1, ErrNotSupported
 	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	return f.object.Read(p)
 }
 
@@ -176,10 +197,15 @@ func (f *file) Write(p []byte) (int, error) {
 	if f.streamWriter == nil {
 		return -1, ErrNotSupported
 	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	return f.streamWriter.Write(p)
 }
 
 func (f *file) Close() error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
 	eg := errgroup.Group{}
 
 	eg.Go(func() error {

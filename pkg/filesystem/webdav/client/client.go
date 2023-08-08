@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/xml"
+	"fmt"
 	"io"
 	"mime"
 	"net/http"
 	"net/url"
+	"os"
 	"path"
 	"strings"
 )
@@ -17,67 +19,106 @@ type Client interface {
 	PropFind(ctx context.Context, path string, depth Depth, propfind *PropFind) (*MultiStatus, error)
 	Move(ctx context.Context, src string, dest string, overwrite bool) error
 	Delete(ctx context.Context, name string) error
-	OpenRead(ctx context.Context, name string) (io.ReadCloser, error)
+
 	OpenWrite(ctx context.Context, name string) (io.WriteCloser, error)
+	Open(ctx context.Context, name string) (File, error)
 }
 
-func NewClient(endpoint string) Client {
-	return &client{
-		endpoint: endpoint,
+func NewClient(endpoint string) (Client, error) {
+	u, err := url.Parse(endpoint)
+	if err != nil {
+		return nil, err
 	}
+
+	return &client{endpoint: u}, nil
 }
 
 type client struct {
-	endpoint string
+	endpoint *url.URL
 }
 
-func (c *client) OpenRead(ctx context.Context, name string) (io.ReadCloser, error) {
-	req, err := c.req(ctx, http.MethodGet, name, nil)
+func (c *client) Open(ctx context.Context, name string) (File, error) {
+	ms, err := c.PropFind(ctx, name, 0, FileInfoPropFind)
 	if err != nil {
 		return nil, err
 	}
-	resp, err := c.do(req)
+
+	// If the client followed a redirect, the Href might be different from the request path
+	if len(ms.Responses) != 1 {
+		return nil, fmt.Errorf("PROPFIND with Depth: 0 returned %d responses", len(ms.Responses))
+	}
+
+	info, err := ms.Responses[0].FileInfo()
 	if err != nil {
+		if IsNotFound(err) {
+			return nil, &os.PathError{
+				Op:   "stat",
+				Path: name,
+				Err:  os.ErrNotExist,
+			}
+		}
 		return nil, err
 	}
-	return resp.Body, nil
+
+	f := &file{
+		info: info,
+		doRequest: func(offset int64, end int64) (io.ReadCloser, error) {
+			req, err := c.req(ctx, http.MethodGet, name, nil)
+			if err != nil {
+				return nil, err
+			}
+
+			setRange(req.Header, offset, end)
+
+			resp, err := c.do(req)
+			if err != nil {
+				return nil, err
+			}
+
+			if resp.StatusCode == http.StatusRequestedRangeNotSatisfiable {
+				return nil, io.EOF
+			}
+
+			return resp.Body, nil
+		},
+	}
+
+	return f, nil
+}
+
+func setRange(o http.Header, start, end int64) {
+	switch {
+	case start == 0 && end < 0:
+		// Read last '-end' bytes. `bytes=-N`.
+		o.Set("Range", fmt.Sprintf("bytes=%d", end))
+	case 0 < start && end == 0:
+		// Read everything starting from offset
+		// 'start'. `bytes=N-`.
+		o.Set("Range", fmt.Sprintf("bytes=%d-", start))
+	case 0 <= start && start <= end:
+		// Read everything starting at 'start' till the
+		// 'end'. `bytes=N-M`
+		o.Set("Range", fmt.Sprintf("bytes=%d-%d", start, end))
+	default:
+	}
+	return
 }
 
 func (c *client) OpenWrite(ctx context.Context, name string) (io.WriteCloser, error) {
 	pr, pw := io.Pipe()
-	req, err := c.req(ctx, http.MethodPut, name, pr)
-	if err != nil {
-		_ = pw.Close()
-		return nil, err
-	}
-
-	done := make(chan error, 1)
 	go func() {
-		resp, err := c.do(req)
+		req, err := c.req(ctx, http.MethodPut, name, pr)
 		if err != nil {
-			done <- err
 			return
 		}
-		done <- resp.Body.Close()
+		resp, err := c.do(req)
+		if err != nil {
+			return
+		}
+		_ = resp.Body.Close()
 	}()
 
-	return &fileWriter{pw, done}, nil
-}
-
-type fileWriter struct {
-	pw   *io.PipeWriter
-	done <-chan error
-}
-
-func (fw *fileWriter) Write(b []byte) (int, error) {
-	return fw.pw.Write(b)
-}
-
-func (fw *fileWriter) Close() error {
-	if err := fw.pw.Close(); err != nil {
-		return err
-	}
-	return <-fw.done
+	return pw, nil
 }
 
 func (c *client) Move(ctx context.Context, src string, dest string, overwrite bool) error {
@@ -122,6 +163,10 @@ func (c *client) MkCol(ctx context.Context, name string) error {
 }
 
 func (c *client) PropFind(ctx context.Context, path string, depth Depth, propfind *PropFind) (*MultiStatus, error) {
+	if propfind == nil {
+		propfind = FileInfoPropFind
+	}
+
 	r, err := c.reqXML(ctx, "PROPFIND", path, propfind)
 	if err != nil {
 		return nil, err
@@ -158,12 +203,9 @@ func (c *client) req(ctx context.Context, method string, path string, reader io.
 }
 
 func (c *client) ResolveHref(p string) (*url.URL, error) {
-	u, err := url.Parse(c.endpoint)
-	if err != nil {
-		return nil, err
-	}
+	u := *c.endpoint
 	u.Path = path.Join(u.Path, strings.TrimLeft(p, "/"))
-	return u, nil
+	return &u, nil
 }
 
 func (c *client) do(req *http.Request) (*http.Response, error) {
@@ -206,5 +248,10 @@ func (c *client) doMultiStatus(req *http.Request) (*MultiStatus, error) {
 	if err := xml.NewDecoder(resp.Body).Decode(&ms); err != nil {
 		return nil, err
 	}
+
+	for _, r := range ms.Responses {
+		r.Prefix = c.endpoint.Path
+	}
+
 	return &ms, nil
 }

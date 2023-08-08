@@ -99,6 +99,14 @@ func NewPropNamePropFind(names ...xml.Name) *PropFind {
 	return &PropFind{Prop: &Prop{Raw: xmlNamesToRaw(names)}}
 }
 
+var FileInfoPropFind = NewPropNamePropFind(
+	ResourceTypeName,
+	GetContentLengthName,
+	GetLastModifiedName,
+	GetContentTypeName,
+	GetETagName,
+)
+
 // https://tools.ietf.org/html/rfc4918#section-14.8
 type Include struct {
 	XMLName xml.Name      `xml:"DAV: include"`

@@ -17,16 +17,18 @@ import (
 	"github.com/octohelm/unifs/pkg/filesystem/fsutil"
 )
 
-func NewS3FS(c *minio.Client, bucket string) filesystem.FileSystem {
+func NewS3FS(c *minio.Client, bucket string, prefix string) filesystem.FileSystem {
 	return &s3fs{
 		bucket: bucket,
+		prefix: prefix,
 		c:      c,
 	}
 }
 
 type s3fs struct {
-	bucket string
 	c      *minio.Client
+	bucket string
+	prefix string
 }
 
 func (fs *s3fs) Mkdir(ctx context.Context, name string, perm os.FileMode) error {
@@ -37,6 +39,7 @@ func (fs *s3fs) Mkdir(ctx context.Context, name string, perm os.FileMode) error 
 			Err:  os.ErrExist,
 		}
 	}
+
 	f, err := fs.OpenFile(ctx, fmt.Sprintf("%s/", path.Clean(name)), os.O_CREATE, perm)
 	if err != nil {
 		return err
@@ -65,7 +68,7 @@ func (fs *s3fs) OpenFile(ctx context.Context, name string, flag int, perm os.Fil
 	}
 
 	if flag&os.O_WRONLY != 0 {
-		return openFileForWrite(ctx, fs, name)
+		return openFileForWrite(ctx, fs, name, flag)
 	}
 
 	return openFileForRead(ctx, fs, name)
@@ -76,18 +79,19 @@ func (fs *s3fs) Rename(ctx context.Context, oldName, newName string) error {
 		return nil
 	}
 
-	if strings.HasPrefix(newName, oldName) {
+	info, err := fs.Stat(ctx, oldName)
+	if err != nil {
+		return err
+	}
+
+	//  /x could not mv to its child path like /x/a/b/x
+	if oldName == "/" || strings.HasPrefix(newName, oldName+"/") {
 		return &os.LinkError{
 			Op:  "rename",
 			Old: oldName,
 			New: newName,
 			Err: os.ErrPermission,
 		}
-	}
-
-	info, err := fs.Stat(ctx, oldName)
-	if err != nil {
-		return err
 	}
 
 	if info.IsDir() {
@@ -121,11 +125,11 @@ func (fs *s3fs) Rename(ctx context.Context, oldName, newName string) error {
 		ctx,
 		minio.CopyDestOptions{
 			Bucket: fs.bucket,
-			Object: newName,
+			Object: fs.path(newName),
 		},
 		minio.CopySrcOptions{
 			Bucket: fs.bucket,
-			Object: oldName,
+			Object: fs.path(oldName),
 		},
 	)
 
@@ -175,16 +179,23 @@ func (fs *s3fs) RemoveAll(ctx context.Context, name string) error {
 
 func (fs *s3fs) forceRemove(ctx context.Context, name string, isDir bool) error {
 	if isDir {
-		if err := fs.c.RemoveObject(ctx, fs.bucket, filepath.Join(name, dirHolder), minio.RemoveObjectOptions{
+		if err := fs.c.RemoveObject(ctx, fs.bucket, fs.path(filepath.Join(name, dirHolder)), minio.RemoveObjectOptions{
 			ForceDelete: true,
 		}); err != nil {
 			return err
 		}
 	}
 
-	return fs.c.RemoveObject(ctx, fs.bucket, name, minio.RemoveObjectOptions{
+	return fs.c.RemoveObject(ctx, fs.bucket, fs.path(name), minio.RemoveObjectOptions{
 		ForceDelete: true,
 	})
+}
+
+func (fs *s3fs) path(name string) (s string) {
+	if fs.prefix == "" || fs.prefix == "/" {
+		return strings.TrimPrefix(name, "/")
+	}
+	return strings.TrimPrefix(filepath.Join(fs.prefix, name), "/")
 }
 
 func (fs *s3fs) Stat(ctx context.Context, name string) (os.FileInfo, error) {
@@ -192,7 +203,7 @@ func (fs *s3fs) Stat(ctx context.Context, name string) (os.FileInfo, error) {
 		return fsutil.NewDirFileInfo(name), nil
 	}
 
-	info, err := fs.c.StatObject(ctx, fs.bucket, name, minio.StatObjectOptions{})
+	info, err := fs.c.StatObject(ctx, fs.bucket, fs.path(name), minio.StatObjectOptions{})
 	if err != nil {
 		var errorResponse minio.ErrorResponse
 		if errors.As(err, &errorResponse) {
@@ -219,7 +230,7 @@ func (fs *s3fs) statDirectory(ctx context.Context, name string) (os.FileInfo, er
 	nameClean := path.Clean(name)
 
 	objects := fs.c.ListObjects(ctx, fs.bucket, minio.ListObjectsOptions{
-		Prefix:  strings.TrimPrefix(nameClean, "/"),
+		Prefix:  fs.path(nameClean),
 		MaxKeys: 1,
 	})
 

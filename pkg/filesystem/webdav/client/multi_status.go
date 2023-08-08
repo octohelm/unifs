@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -34,6 +35,7 @@ type Response struct {
 	Status              *Status    `xml:"status,omitempty"`
 	Error               *Error     `xml:"error,omitempty"`
 	Location            *Location  `xml:"location,omitempty"`
+	Prefix              string     `xml:"-"`
 }
 
 func (resp *Response) FileInfo() (filesystem.FileInfo, error) {
@@ -119,6 +121,11 @@ func (resp *Response) Path() (string, error) {
 	} else if err == nil {
 		err = fmt.Errorf("webdav: malformed response: expected exactly one href element, got %v", len(resp.Hrefs))
 	}
+
+	if path != "" && (resp.Prefix != "" && resp.Prefix != "/") {
+		path = strings.TrimPrefix(path, resp.Prefix)
+	}
+
 	return path, err
 }
 

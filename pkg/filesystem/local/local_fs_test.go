@@ -6,6 +6,11 @@ import (
 )
 
 func TestLocalFS(t *testing.T) {
-	fs := NewLocalFS(t.TempDir())
-	testutil.TestFS(t, fs)
+	t.Run("Simple", func(t *testing.T) {
+		testutil.TestSimpleFS(t, NewLocalFS(t.TempDir()))
+	})
+
+	t.Run("Full", func(t *testing.T) {
+		testutil.TestFullFS(t, NewLocalFS(t.TempDir()))
+	})
 }
