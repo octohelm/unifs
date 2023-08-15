@@ -3,16 +3,17 @@ package s3
 import (
 	"context"
 	"fmt"
-	"github.com/johannesboyne/gofakes3"
-	"github.com/johannesboyne/gofakes3/backend/s3mem"
-	"github.com/octohelm/unifs/pkg/filesystem"
-	"github.com/octohelm/unifs/pkg/filesystem/testutil"
-	"github.com/octohelm/unifs/pkg/strfmt"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/johannesboyne/gofakes3"
+	"github.com/johannesboyne/gofakes3/backend/s3mem"
+	"github.com/octohelm/unifs/pkg/filesystem"
+	"github.com/octohelm/unifs/pkg/filesystem/testutil"
+	"github.com/octohelm/unifs/pkg/strfmt"
 )
 
 func TestS3Fs(t *testing.T) {

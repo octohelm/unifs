@@ -3,28 +3,24 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/octohelm/unifs/pkg/csidriver/mounter"
+	"os"
+
 	"github.com/go-courier/logr"
 	"github.com/hanwen/go-fuse/v2/fs"
 	fusefuse "github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/innoai-tech/infra/pkg/cli"
 	"github.com/innoai-tech/infra/pkg/configuration"
 	"github.com/innoai-tech/infra/pkg/otel"
-	"github.com/octohelm/unifs/pkg/filesystem"
-	"github.com/octohelm/unifs/pkg/filesystem/local"
-	"github.com/octohelm/unifs/pkg/filesystem/s3"
-	"github.com/octohelm/unifs/pkg/filesystem/webdav"
+	"github.com/octohelm/unifs/pkg/filesystem/api"
 	"github.com/octohelm/unifs/pkg/fuse"
 	"github.com/octohelm/unifs/pkg/strfmt"
-	"github.com/pkg/errors"
-	"os"
-	"time"
+	daemon "github.com/sevlyar/go-daemon"
 )
 
 func init() {
 	cli.AddTo(App, &Mount{})
 }
-
-var _ configuration.Server = &Mounter{}
 
 // Mount as fuse fs
 type Mount struct {
@@ -34,93 +30,72 @@ type Mount struct {
 	Mounter
 }
 
-type Mounter struct {
-	MountPoint string `arg:""`
-	// Source Endpoint
-	Endpoint strfmt.Endpoint `flag:"endpoint"`
+var _ configuration.Runner = &Mounter{}
 
-	fsi   filesystem.FileSystem `flag:"-"`
-	state *fusefuse.Server      `flag:"-"`
+type Mounter struct {
+	MountPoint string          `arg:""`
+	Backend    strfmt.Endpoint `flag:"backend"`
+	Foreground bool            `flag:"foreground,omitempty"`
+	Delegate   bool            `flag:"delegate,omitempty"`
 }
 
-func (m *Mounter) Init(ctx context.Context) error {
-	switch m.Endpoint.Scheme {
-	case "s3":
-		conf := &s3.Config{Endpoint: m.Endpoint}
-		c, err := conf.Client(ctx)
+func (m *Mounter) Run(ctx context.Context) error {
+	if m.Delegate {
+		m2, err := mounter.NewMounter(ctx, m.Backend.String())
 		if err != nil {
 			return err
 		}
-		m.fsi = s3.NewS3FS(c, conf.Bucket(), conf.Prefix())
-	case "webdav":
-		conf := &webdav.Config{Endpoint: m.Endpoint}
-		c, err := conf.Client(ctx)
-		if err != nil {
-			return err
-		}
-		m.fsi = webdav.NewWebdavFS(c)
-	case "file":
-		m.fsi = local.NewLocalFS(m.Endpoint.Path)
-	default:
-		return errors.Errorf("unsupported endpoint %s", m.Endpoint)
+		return m2.Mount(m.MountPoint)
 	}
 
-	return nil
-}
+	if !m.Foreground {
+		dctx := &daemon.Context{}
+		p, err := dctx.Reborn()
+		if err != nil {
+			return err
+		}
 
-func (m *Mounter) Serve(ctx context.Context) error {
+		if p != nil {
+			return nil
+		}
+
+		defer dctx.Release()
+	}
+
 	if err := os.MkdirAll(m.MountPoint, os.ModePerm); err != nil {
 		return err
 	}
 
+	b := &api.FileSystemBackend{}
+	b.Backend = m.Backend
+
+	if err := b.Init(ctx); err != nil {
+		return err
+	}
+
 	options := &fs.Options{}
-	options.Name = fmt.Sprintf("%s.fs", m.Endpoint.Scheme)
+	options.Name = fmt.Sprintf("%s.fs", b.Backend.Scheme)
 	//options.Debug = true
 
-	rawFS := fs.NewNodeFS(fuse.FS(m.fsi), options)
+	rawFS := fs.NewNodeFS(fuse.FS(b.FileSystem()), options)
 
 	state, err := fusefuse.NewServer(rawFS, m.MountPoint, &options.MountOptions)
 	if err != nil {
 		return err
 	}
-	m.state = state
 
 	logr.FromContext(ctx).
 		WithValues(
-			"fsi", m.Endpoint.Scheme,
+			"fsi", m.Backend.Scheme,
 			"on", m.MountPoint,
 		).
 		Info("mounted")
 
+	if !m.Foreground {
+		go state.Serve()
+		return daemon.ServeSignals()
+	}
+
 	state.Serve()
 	return nil
-}
-
-func (m *Mounter) Shutdown(ctx context.Context) error {
-	if m.state == nil {
-		return nil
-	}
-
-	errCh := make(chan error)
-
-	go func() {
-		for i := 0; i < 5; i++ {
-			err := m.state.Unmount()
-			if err == nil {
-				errCh <- err
-				return
-			}
-			logr.FromContext(ctx).Warn(errors.Wrap(err, "unmount failed"))
-			time.Sleep(time.Second)
-			logr.FromContext(ctx).Info("retrying...")
-		}
-		errCh <- m.state.Unmount()
-	}()
-
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case err := <-errCh:
-		return err
-	}
 }

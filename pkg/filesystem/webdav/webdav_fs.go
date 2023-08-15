@@ -3,11 +3,12 @@ package webdav
 import (
 	"context"
 	"fmt"
-	"github.com/pkg/errors"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
+
+	"github.com/pkg/errors"
 
 	"golang.org/x/net/webdav"
 

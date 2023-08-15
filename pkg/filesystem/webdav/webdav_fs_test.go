@@ -3,17 +3,19 @@ package webdav
 import (
 	"context"
 	"fmt"
-	"github.com/octohelm/unifs/pkg/filesystem"
-	"github.com/octohelm/unifs/pkg/filesystem/testutil"
-	"github.com/octohelm/unifs/pkg/strfmt"
 	"net/http"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
-	"golang.org/x/net/webdav"
+	"github.com/octohelm/unifs/pkg/filesystem"
+	"github.com/octohelm/unifs/pkg/filesystem/testutil"
+	"github.com/octohelm/unifs/pkg/strfmt"
+
 	"net/http/httptest"
+
+	"golang.org/x/net/webdav"
 )
 
 func TestWebdavFs(t *testing.T) {

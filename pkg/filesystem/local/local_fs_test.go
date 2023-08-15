@@ -1,8 +1,9 @@
 package local
 
 import (
-	"github.com/octohelm/unifs/pkg/filesystem/testutil"
 	"testing"
+
+	"github.com/octohelm/unifs/pkg/filesystem/testutil"
 )
 
 func TestLocalFS(t *testing.T) {

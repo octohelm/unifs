@@ -2,16 +2,16 @@ package fuse
 
 import (
 	"context"
+	"io"
+	"syscall"
+
 	"github.com/hanwen/go-fuse/v2/fs"
 	"github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/octohelm/unifs/pkg/filesystem"
-	"io"
-	"syscall"
 )
 
 type File interface {
 	fs.FileHandle
-
 	fs.FileReader
 	fs.FileWriter
 	fs.FileReleaser

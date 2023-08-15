@@ -1,10 +1,11 @@
 package client
 
 import (
-	"golang.org/x/sync/errgroup"
 	"io"
 	"os"
 	"sync"
+
+	"golang.org/x/sync/errgroup"
 )
 
 type File interface {

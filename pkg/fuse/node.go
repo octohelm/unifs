@@ -2,9 +2,10 @@ package fuse
 
 import (
 	"context"
-	"github.com/davecgh/go-spew/spew"
 	"os"
 	"syscall"
+
+	"github.com/davecgh/go-spew/spew"
 
 	"github.com/hanwen/go-fuse/v2/fs"
 	"github.com/hanwen/go-fuse/v2/fuse"

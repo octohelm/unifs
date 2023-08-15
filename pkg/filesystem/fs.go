@@ -1,8 +1,9 @@
 package filesystem
 
 import (
-	"golang.org/x/net/webdav"
 	"os"
+
+	"golang.org/x/net/webdav"
 )
 
 type FileSystem = webdav.FileSystem

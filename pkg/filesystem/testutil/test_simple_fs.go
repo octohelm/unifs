@@ -3,12 +3,13 @@ package testutil
 import (
 	"context"
 	"encoding/json"
-	"github.com/octohelm/unifs/pkg/filesystem"
-	"github.com/octohelm/x/slices"
-	testingx "github.com/octohelm/x/testing"
 	"io"
 	"os"
 	"testing"
+
+	"github.com/octohelm/unifs/pkg/filesystem"
+	"github.com/octohelm/x/slices"
+	testingx "github.com/octohelm/x/testing"
 )
 
 func TestSimpleFS(t *testing.T, fs filesystem.FileSystem) {

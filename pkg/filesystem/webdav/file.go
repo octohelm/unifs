@@ -2,12 +2,13 @@ package webdav
 
 import (
 	"context"
-	"github.com/octohelm/unifs/pkg/filesystem"
-	"github.com/octohelm/unifs/pkg/filesystem/webdav/client"
-	"golang.org/x/sync/errgroup"
 	"io"
 	"os"
 	"strings"
+
+	"github.com/octohelm/unifs/pkg/filesystem"
+	"github.com/octohelm/unifs/pkg/filesystem/webdav/client"
+	"golang.org/x/sync/errgroup"
 )
 
 type file struct {

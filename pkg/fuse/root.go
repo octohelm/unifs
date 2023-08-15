@@ -1,13 +1,14 @@
 package fuse
 
 import (
-	"github.com/hanwen/go-fuse/v2/fs"
-	"github.com/hanwen/go-fuse/v2/fuse"
-	"github.com/octohelm/unifs/pkg/filesystem"
 	"os"
 	"path/filepath"
 	"syscall"
 	"time"
+
+	"github.com/hanwen/go-fuse/v2/fs"
+	"github.com/hanwen/go-fuse/v2/fuse"
+	"github.com/octohelm/unifs/pkg/filesystem"
 )
 
 func FS(fsi filesystem.FileSystem) fs.InodeEmbedder {

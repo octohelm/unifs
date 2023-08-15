@@ -2,8 +2,9 @@ package webdav
 
 import (
 	"context"
-	"github.com/pkg/errors"
 	"net/url"
+
+	"github.com/pkg/errors"
 
 	"github.com/octohelm/unifs/pkg/filesystem/webdav/client"
 	"github.com/octohelm/unifs/pkg/strfmt"
