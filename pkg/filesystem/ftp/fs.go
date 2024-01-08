@@ -12,9 +12,10 @@ import (
 )
 
 func NewFS(c *Config) filesystem.FileSystem {
-	return &fs{
-		c: c,
+	if basePath := c.BasePath(); basePath != "" && basePath != "/" {
+		return filesystem.Sub(&fs{c: c}, basePath)
 	}
+	return &fs{c: c}
 }
 
 type fs struct {

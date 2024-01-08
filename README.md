@@ -6,16 +6,12 @@ flowchart TB
     ftp_fs[Ftp FS]
     local_fs[Local FS]
     webdav_fs[WebDAV FS]
-
     fsi(FileSystem Inteface)
-
     ftp_fs & s3_fs & webdav_fs & local_fs --> fsi
-
     webdav_server[WebDAV Server]
     ftp_server[Ftp Server]
     fuse_fs[Fuse Fs]
     go_code[Go code]
-
     fsi -->|mount| fuse_fs
     fsi -->|direct| go_code
     fsi -->|serve| ftp_server
@@ -25,6 +21,8 @@ flowchart TB
 ### Supported Backends
 
 ```
+ftp://<username>:<password>@<host>[<bath_path>]
+
 webdav://<username>:<password>@<host>[<bath_path>][?insecure=true]
 
 s3://<access_key_id>:<access_key_secret>@<host>/<bucket>[<bath_path>][?insecure=true]
@@ -51,6 +49,7 @@ reclaimPolicy: Delete
 ```
 
 ### Create Secret && PersistentVolumeClaim
+
 ```yaml
 ---
 apiVersion: v1

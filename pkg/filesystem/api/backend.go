@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"github.com/octohelm/unifs/pkg/filesystem/ftp"
 
 	"github.com/octohelm/unifs/pkg/filesystem"
 	"github.com/octohelm/unifs/pkg/filesystem/local"
@@ -30,6 +31,9 @@ func (m *FileSystemBackend) Init(ctx context.Context) error {
 			return err
 		}
 		m.fsi = s3.NewFS(c, conf.Bucket(), conf.Prefix())
+		return nil
+	case "ftp":
+		m.fsi = ftp.NewFS(&ftp.Config{Endpoint: m.Backend})
 		return nil
 	case "webdav":
 		conf := &webdav.Config{Endpoint: m.Backend}

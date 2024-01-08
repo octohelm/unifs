@@ -16,6 +16,10 @@ type Config struct {
 	p atomic.Pointer[Pool]
 }
 
+func (c *Config) BasePath() string {
+	return c.Endpoint.Path
+}
+
 func (c *Config) Conn(ctx context.Context, args ...any) (Conn, error) {
 	if p := c.p.Load(); p != nil {
 		return p.Conn(ctx, args...)
