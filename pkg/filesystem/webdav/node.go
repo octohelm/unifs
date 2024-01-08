@@ -6,7 +6,7 @@ import (
 )
 
 type node struct {
-	root *webdavfs
+	root *fs
 
 	name    string
 	size    int64

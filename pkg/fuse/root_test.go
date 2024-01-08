@@ -19,11 +19,11 @@ func TestFuse(t *testing.T) {
 	d := mount(t, true)
 
 	t.Run("Simple", func(t *testing.T) {
-		testutil.TestSimpleFS(t, local.NewLocalFS(d))
+		testutil.TestSimpleFS(t, local.NewFS(d))
 	})
 
 	t.Run("Full", func(t *testing.T) {
-		testutil.TestFullFS(t, local.NewLocalFS(d))
+		testutil.TestFullFS(t, local.NewFS(d))
 	})
 }
 

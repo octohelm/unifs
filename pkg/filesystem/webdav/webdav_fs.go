@@ -16,17 +16,17 @@ import (
 	"github.com/octohelm/unifs/pkg/filesystem/webdav/client"
 )
 
-func NewWebdavFS(c client.Client) filesystem.FileSystem {
-	return &webdavfs{
+func NewFS(c client.Client) filesystem.FileSystem {
+	return &fs{
 		c: c,
 	}
 }
 
-type webdavfs struct {
+type fs struct {
 	c client.Client
 }
 
-func (fs *webdavfs) addNode(fi filesystem.FileInfo) *node {
+func (fs *fs) addNode(fi filesystem.FileInfo) *node {
 	return &node{
 		root:    fs,
 		name:    fi.Name(),
@@ -36,7 +36,7 @@ func (fs *webdavfs) addNode(fi filesystem.FileInfo) *node {
 	}
 }
 
-func (fs *webdavfs) Mkdir(ctx context.Context, name string, perm os.FileMode) error {
+func (fs *fs) Mkdir(ctx context.Context, name string, perm os.FileMode) error {
 	if _, err := fs.Stat(ctx, name); err == nil {
 		return &os.PathError{
 			Op:   "mkdir",
@@ -54,21 +54,21 @@ func (fs *webdavfs) Mkdir(ctx context.Context, name string, perm os.FileMode) er
 
 }
 
-func (fs *webdavfs) RemoveAll(ctx context.Context, name string) error {
+func (fs *fs) RemoveAll(ctx context.Context, name string) error {
 	if name == "/" {
 		return errors.Wrap(os.ErrPermission, "rm '/' not allow")
 	}
 	return fs.c.Delete(ctx, name)
 }
 
-func (fs *webdavfs) Rename(ctx context.Context, oldName, newName string) error {
+func (fs *fs) Rename(ctx context.Context, oldName, newName string) error {
 	if newName == oldName {
 		return nil
 	}
 	return fs.c.Move(ctx, oldName, newName, false)
 }
 
-func (fs *webdavfs) Stat(ctx context.Context, name string) (os.FileInfo, error) {
+func (fs *fs) Stat(ctx context.Context, name string) (os.FileInfo, error) {
 	ms, err := fs.c.PropFind(ctx, name, 0, client.FileInfoPropFind)
 	if err != nil {
 		return nil, err
@@ -94,7 +94,7 @@ func (fs *webdavfs) Stat(ctx context.Context, name string) (os.FileInfo, error) 
 	return info, nil
 }
 
-func (fs *webdavfs) OpenFile(ctx context.Context, name string, flag int, perm os.FileMode) (webdav.File, error) {
+func (fs *fs) OpenFile(ctx context.Context, name string, flag int, perm os.FileMode) (webdav.File, error) {
 	if flag&os.O_APPEND != 0 {
 		return nil, ErrNotSupported
 	}
@@ -110,7 +110,7 @@ func (fs *webdavfs) OpenFile(ctx context.Context, name string, flag int, perm os
 	return fs.openFile(ctx, name, flag)
 }
 
-func (fs *webdavfs) openDir(ctx context.Context, name string) (filesystem.File, error) {
+func (fs *fs) openDir(ctx context.Context, name string) (filesystem.File, error) {
 	fi, err := fs.Stat(ctx, name)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -140,7 +140,7 @@ func (fs *webdavfs) openDir(ctx context.Context, name string) (filesystem.File, 
 	return &file{node: fs.addNode(fi)}, nil
 }
 
-func (fs *webdavfs) openFile(ctx context.Context, name string, flag int) (filesystem.File, error) {
+func (fs *fs) openFile(ctx context.Context, name string, flag int) (filesystem.File, error) {
 	// check parent path when create
 	if flag&os.O_CREATE != 0 {
 		if parent := filepath.Dir(strings.TrimRight(name, "/")); parent != "/" {

@@ -169,107 +169,108 @@ func TestFullFS(t *testing.T, fs filesystem.FileSystem) {
 
 	for i := range testCases {
 		tc := testCases[i]
-		t.Run(tc, func(t *testing.T) {
-			ctx := context.Background()
 
-			tc = strings.TrimSpace(tc)
-			j := strings.IndexByte(tc, ' ')
-			if j < 0 {
-				t.Fatalf("test case #%d %q: invalid command", i, tc)
+		t.Log(tc)
+
+		ctx := context.Background()
+
+		tc = strings.TrimSpace(tc)
+		j := strings.IndexByte(tc, ' ')
+		if j < 0 {
+			t.Fatalf("test case #%d %q: invalid command", i, tc)
+		}
+		op, arg := tc[:j], tc[j+1:]
+
+		switch op {
+		default:
+			t.Fatalf("test case #%d %q: invalid operation %q", i, tc, op)
+
+		case "create":
+			parts := strings.Split(arg, " ")
+			if len(parts) != 4 || parts[2] != "want" {
+				t.Fatalf("test case #%d %q: invalid write", i, tc)
 			}
-			op, arg := tc[:j], tc[j+1:]
+			f, opErr := fs.OpenFile(ctx, parts[0], os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
+			if got := errStr(opErr); got != parts[3] {
+				t.Fatalf("test case #%d %q: OpenFile: got %q (%v), want %q", i, tc, got, opErr, parts[3])
+			}
+			if f != nil {
+				if _, err := f.Write([]byte(parts[1])); err != nil {
+					t.Fatalf("test case #%d %q: Write: %v", i, tc, err)
+				}
+				if err := f.Close(); err != nil {
+					t.Fatalf("test case #%d %q: Close: %v", i, tc, err)
+				}
+			}
+		case "find":
+			got, err := find(ctx, nil, fs, "/")
+			if err != nil {
+				t.Fatalf("test case #%d %q: find: %v", i, tc, err)
+			}
+			sort.Strings(got)
+			want := strings.Split(arg, " ")
+			if !reflect.DeepEqual(got, want) {
+				t.Fatalf("test case #%d %q:\ngot  %s\nwant %s", i, tc, got, want)
+			}
 
+		case "copy__", "mk-dir", "move__", "rm-all", "stat":
+			nParts := 3
 			switch op {
-			default:
-				t.Fatalf("test case #%d %q: invalid operation %q", i, tc, op)
-
-			case "create":
-				parts := strings.Split(arg, " ")
-				if len(parts) != 4 || parts[2] != "want" {
-					t.Fatalf("test case #%d %q: invalid write", i, tc)
-				}
-				f, opErr := fs.OpenFile(ctx, parts[0], os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
-				if got := errStr(opErr); got != parts[3] {
-					t.Fatalf("test case #%d %q: OpenFile: got %q (%v), want %q", i, tc, got, opErr, parts[3])
-				}
-				if f != nil {
-					if _, err := f.Write([]byte(parts[1])); err != nil {
-						t.Fatalf("test case #%d %q: Write: %v", i, tc, err)
-					}
-					if err := f.Close(); err != nil {
-						t.Fatalf("test case #%d %q: Close: %v", i, tc, err)
-					}
-				}
-			case "find":
-				got, err := find(ctx, nil, fs, "/")
-				if err != nil {
-					t.Fatalf("test case #%d %q: find: %v", i, tc, err)
-				}
-				sort.Strings(got)
-				want := strings.Split(arg, " ")
-				if !reflect.DeepEqual(got, want) {
-					t.Fatalf("test case #%d %q:\ngot  %s\nwant %s", i, tc, got, want)
-				}
-
-			case "copy__", "mk-dir", "move__", "rm-all", "stat":
-				nParts := 3
-				switch op {
-				case "copy__":
-					nParts = 6
-				case "move__":
-					nParts = 5
-				}
-				parts := strings.Split(arg, " ")
-				if len(parts) != nParts {
-					t.Fatalf("test case #%d %q: invalid %s", i, tc, op)
-				}
-				got, opErr := "", error(nil)
-				switch op {
-				case "copy__":
-					depth := 0
-					if parts[1] == "d=∞" {
-						depth = infiniteDepth
-					}
-					_, opErr = copyFiles(ctx, fs, parts[2], parts[3], parts[0] == "o=T", depth, 0)
-				case "mk-dir":
-					opErr = fs.Mkdir(ctx, parts[0], 0777)
-				case "move__":
-					_, opErr = moveFiles(ctx, fs, parts[1], parts[2], parts[0] == "o=T")
-				case "rm-all":
-					opErr = fs.RemoveAll(ctx, parts[0])
-				case "stat":
-					var stat os.FileInfo
-					fileName := parts[0]
-					if stat, opErr = fs.Stat(ctx, fileName); opErr == nil {
-						if stat.IsDir() {
-							got = "dir"
-						} else {
-							got = strconv.Itoa(int(stat.Size()))
-						}
-
-						if fileName == "/" {
-							// For a Dir FileSystem, the virtual file system root maps to a
-							// real file system name like "/tmp/webdav-test012345", which does
-							// not end with "/". We skip such cases.
-						} else if statName := stat.Name(); path.Base(fileName) != statName {
-							t.Fatalf("test case #%d %q: file name %q inconsistent with stat name %q",
-								i, tc, fileName, statName)
-						}
-					}
-
-				}
-				if got == "" {
-					got = errStr(opErr)
-				}
-
-				if parts[len(parts)-2] != "want" {
-					t.Fatalf("test case #%d %q: invalid %s", i, tc, op)
-				}
-				if want := parts[len(parts)-1]; got != want {
-					t.Fatalf("test case #%d %q: got %q (%v), want %q", i, tc, got, opErr, want)
-				}
+			case "copy__":
+				nParts = 6
+			case "move__":
+				nParts = 5
 			}
-		})
+			parts := strings.Split(arg, " ")
+			if len(parts) != nParts {
+				t.Fatalf("test case #%d %q: invalid %s", i, tc, op)
+			}
+			got, opErr := "", error(nil)
+			switch op {
+			case "copy__":
+				depth := 0
+				if parts[1] == "d=∞" {
+					depth = infiniteDepth
+				}
+				_, opErr = copyFiles(ctx, fs, parts[2], parts[3], parts[0] == "o=T", depth, 0)
+			case "mk-dir":
+				opErr = fs.Mkdir(ctx, parts[0], 0777)
+			case "move__":
+				_, opErr = moveFiles(ctx, fs, parts[1], parts[2], parts[0] == "o=T")
+			case "rm-all":
+				opErr = fs.RemoveAll(ctx, parts[0])
+			case "stat":
+				var stat os.FileInfo
+				fileName := parts[0]
+				if stat, opErr = fs.Stat(ctx, fileName); opErr == nil {
+					if stat.IsDir() {
+						got = "dir"
+					} else {
+						got = strconv.Itoa(int(stat.Size()))
+					}
+
+					if fileName == "/" {
+						// For a Dir FileSystem, the virtual file system root maps to a
+						// real file system name like "/tmp/webdav-test012345", which does
+						// not end with "/". We skip such cases.
+					} else if statName := stat.Name(); path.Base(fileName) != statName {
+						t.Fatalf("test case #%d %q: file name %q inconsistent with stat name %q",
+							i, tc, fileName, statName)
+					}
+				}
+
+			}
+			if got == "" {
+				got = errStr(opErr)
+			}
+
+			if parts[len(parts)-2] != "want" {
+				t.Fatalf("test case #%d %q: invalid %s", i, tc, op)
+			}
+			if want := parts[len(parts)-1]; got != want {
+				t.Fatalf("test case #%d %q: got %q (%v), want %q", i, tc, got, opErr, want)
+			}
+		}
 	}
 }
 

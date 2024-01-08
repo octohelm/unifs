@@ -17,30 +17,29 @@ import (
 	"github.com/octohelm/unifs/pkg/filesystem/fsutil"
 )
 
-func NewS3FS(c *minio.Client, bucket string, prefix string) filesystem.FileSystem {
-	return &s3fs{
+func NewFS(c *minio.Client, bucket string, prefix string) filesystem.FileSystem {
+	return &fs{
 		bucket: bucket,
 		prefix: prefix,
 		c:      c,
 	}
 }
 
-type s3fs struct {
+type fs struct {
 	c      *minio.Client
 	bucket string
 	prefix string
 }
 
-func (fs *s3fs) Mkdir(ctx context.Context, name string, perm os.FileMode) error {
-	if _, err := fs.Stat(ctx, name); err == nil {
+func (fsys *fs) Mkdir(ctx context.Context, name string, perm os.FileMode) error {
+	if _, err := fsys.Stat(ctx, name); err == nil {
 		return &os.PathError{
 			Op:   "mkdir",
 			Path: name,
 			Err:  os.ErrExist,
 		}
 	}
-
-	f, err := fs.OpenFile(ctx, fmt.Sprintf("%s/", path.Clean(name)), os.O_CREATE, perm)
+	f, err := fsys.OpenFile(ctx, fmt.Sprintf("%s/", path.Clean(name)), os.O_CREATE, perm)
 	if err != nil {
 		return err
 	}
@@ -49,7 +48,7 @@ func (fs *s3fs) Mkdir(ctx context.Context, name string, perm os.FileMode) error 
 
 }
 
-func (fs *s3fs) OpenFile(ctx context.Context, name string, flag int, perm os.FileMode) (webdav.File, error) {
+func (fsys *fs) OpenFile(ctx context.Context, name string, flag int, perm os.FileMode) (webdav.File, error) {
 	// Appending is not supported by S3. It's do-able though by:
 	// - Copying the existing file to a new place (for example $file.previous)
 	// - Writing a new file, streaming the content of the previous file in it
@@ -64,22 +63,22 @@ func (fs *s3fs) OpenFile(ctx context.Context, name string, flag int, perm os.Fil
 	}
 
 	if strings.HasSuffix(name, "/") {
-		return openDir(ctx, fs, name)
+		return openDir(ctx, fsys, name)
 	}
 
 	if flag&os.O_WRONLY != 0 {
-		return openFileForWrite(ctx, fs, name, flag)
+		return openFileForWrite(ctx, fsys, name, flag)
 	}
 
-	return openFileForRead(ctx, fs, name)
+	return openFileForRead(ctx, fsys, name)
 }
 
-func (fs *s3fs) Rename(ctx context.Context, oldName, newName string) error {
+func (fsys *fs) Rename(ctx context.Context, oldName, newName string) error {
 	if newName == oldName {
 		return nil
 	}
 
-	info, err := fs.Stat(ctx, oldName)
+	info, err := fsys.Stat(ctx, oldName)
 	if err != nil {
 		return err
 	}
@@ -97,7 +96,7 @@ func (fs *s3fs) Rename(ctx context.Context, oldName, newName string) error {
 	if info.IsDir() {
 		f := &file{
 			ctx:  ctx,
-			fs:   fs,
+			fs:   fsys,
 			name: oldName,
 		}
 
@@ -106,30 +105,30 @@ func (fs *s3fs) Rename(ctx context.Context, oldName, newName string) error {
 			return err
 		}
 
-		if err := fs.Mkdir(ctx, newName, os.ModePerm); err != nil {
+		if err := fsys.Mkdir(ctx, newName, os.ModePerm); err != nil {
 			return err
 		}
 
 		for _, fi := range fileInfos {
 			fullPath := path.Join(f.Name(), fi.Name())
 			destFullPath := path.Join(newName, fi.Name())
-			if err := fs.Rename(ctx, fullPath, destFullPath); err != nil {
+			if err := fsys.Rename(ctx, fullPath, destFullPath); err != nil {
 				return err
 			}
 		}
 
-		return fs.forceRemove(ctx, oldName, true)
+		return fsys.forceRemove(ctx, oldName, true)
 	}
 
-	_, err = fs.c.CopyObject(
+	_, err = fsys.c.CopyObject(
 		ctx,
 		minio.CopyDestOptions{
-			Bucket: fs.bucket,
-			Object: fs.path(newName),
+			Bucket: fsys.bucket,
+			Object: fsys.path(newName),
 		},
 		minio.CopySrcOptions{
-			Bucket: fs.bucket,
-			Object: fs.path(oldName),
+			Bucket: fsys.bucket,
+			Object: fsys.path(oldName),
 		},
 	)
 
@@ -137,17 +136,17 @@ func (fs *s3fs) Rename(ctx context.Context, oldName, newName string) error {
 		return errors.Wrap(err, "copy failed")
 	}
 
-	return fs.forceRemove(ctx, oldName, false)
+	return fsys.forceRemove(ctx, oldName, false)
 }
 
-func (fs *s3fs) RemoveAll(ctx context.Context, name string) error {
+func (fsys *fs) RemoveAll(ctx context.Context, name string) error {
 	if name == "/" {
 		return errors.Wrap(os.ErrPermission, "rm '/' not allow")
 	}
 
 	f := &file{
 		ctx:  ctx,
-		fs:   fs,
+		fs:   fsys,
 		name: name,
 	}
 
@@ -160,55 +159,55 @@ func (fs *s3fs) RemoveAll(ctx context.Context, name string) error {
 		fullPath := path.Join(f.Name(), fi.Name())
 
 		if fi.IsDir() {
-			if err := fs.RemoveAll(ctx, fullPath); err != nil {
+			if err := fsys.RemoveAll(ctx, fullPath); err != nil {
 				return err
 			}
 		} else {
-			if err := fs.forceRemove(ctx, fullPath, false); err != nil {
+			if err := fsys.forceRemove(ctx, fullPath, false); err != nil {
 				return err
 			}
 		}
 	}
 
-	if err := fs.forceRemove(ctx, path.Clean(f.Name())+"/", true); err != nil {
+	if err := fsys.forceRemove(ctx, path.Clean(f.Name())+"/", true); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (fs *s3fs) forceRemove(ctx context.Context, name string, isDir bool) error {
+func (fsys *fs) forceRemove(ctx context.Context, name string, isDir bool) error {
 	if isDir {
-		if err := fs.c.RemoveObject(ctx, fs.bucket, fs.path(filepath.Join(name, dirHolder)), minio.RemoveObjectOptions{
+		if err := fsys.c.RemoveObject(ctx, fsys.bucket, fsys.path(filepath.Join(name, dirHolder)), minio.RemoveObjectOptions{
 			ForceDelete: true,
 		}); err != nil {
 			return err
 		}
 	}
 
-	return fs.c.RemoveObject(ctx, fs.bucket, fs.path(name), minio.RemoveObjectOptions{
+	return fsys.c.RemoveObject(ctx, fsys.bucket, fsys.path(name), minio.RemoveObjectOptions{
 		ForceDelete: true,
 	})
 }
 
-func (fs *s3fs) path(name string) (s string) {
-	if fs.prefix == "" || fs.prefix == "/" {
+func (fsys *fs) path(name string) (s string) {
+	if fsys.prefix == "" || fsys.prefix == "/" {
 		return strings.TrimPrefix(name, "/")
 	}
-	return strings.TrimPrefix(filepath.Join(fs.prefix, name), "/")
+	return strings.TrimPrefix(filepath.Join(fsys.prefix, name), "/")
 }
 
-func (fs *s3fs) Stat(ctx context.Context, name string) (os.FileInfo, error) {
+func (fsys *fs) Stat(ctx context.Context, name string) (os.FileInfo, error) {
 	if name == "/" {
 		return fsutil.NewDirFileInfo(name), nil
 	}
 
-	info, err := fs.c.StatObject(ctx, fs.bucket, fs.path(name), minio.StatObjectOptions{})
+	info, err := fsys.c.StatObject(ctx, fsys.bucket, fsys.path(name), minio.StatObjectOptions{})
 	if err != nil {
 		var errorResponse minio.ErrorResponse
 		if errors.As(err, &errorResponse) {
 			if errorResponse.StatusCode == http.StatusNotFound {
-				return fs.statDirectory(ctx, name)
+				return fsys.statDirectory(ctx, name)
 			}
 		}
 
@@ -226,11 +225,11 @@ func (fs *s3fs) Stat(ctx context.Context, name string) (os.FileInfo, error) {
 	), nil
 }
 
-func (fs *s3fs) statDirectory(ctx context.Context, name string) (os.FileInfo, error) {
+func (fsys *fs) statDirectory(ctx context.Context, name string) (os.FileInfo, error) {
 	nameClean := path.Clean(name)
 
-	objects := fs.c.ListObjects(ctx, fs.bucket, minio.ListObjectsOptions{
-		Prefix:  fs.path(nameClean),
+	objects := fsys.c.ListObjects(ctx, fsys.bucket, minio.ListObjectsOptions{
+		Prefix:  fsys.path(nameClean),
 		MaxKeys: 1,
 	})
 

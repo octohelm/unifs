@@ -17,7 +17,7 @@ import (
 	"github.com/octohelm/unifs/pkg/filesystem/fsutil"
 )
 
-func openDir(ctx context.Context, fs *s3fs, name string) (filesystem.File, error) {
+func openDir(ctx context.Context, fs *fs, name string) (filesystem.File, error) {
 	dir := &file{ctx: ctx, fs: fs, name: name}
 
 	info, err := fs.Stat(ctx, name)
@@ -50,7 +50,7 @@ func openDir(ctx context.Context, fs *s3fs, name string) (filesystem.File, error
 
 const dirHolder = ".fs_dir"
 
-func openFileForWrite(ctx context.Context, fs *s3fs, name string, flags int) (filesystem.File, error) {
+func openFileForWrite(ctx context.Context, fs *fs, name string, flags int) (filesystem.File, error) {
 	if parent := filepath.Dir(strings.TrimRight(name, "/")); parent != "/" {
 		if _, err := fs.Stat(ctx, parent); err != nil {
 			return nil, err
@@ -89,7 +89,7 @@ func openFileForWrite(ctx context.Context, fs *s3fs, name string, flags int) (fi
 	return f, nil
 }
 
-func openFileForRead(ctx context.Context, fs *s3fs, name string) (filesystem.File, error) {
+func openFileForRead(ctx context.Context, fs *fs, name string) (filesystem.File, error) {
 	f := &file{ctx: ctx, fs: fs, name: name}
 
 	o, err := fs.c.GetObject(ctx, fs.bucket, fs.path(name), minio.GetObjectOptions{})
@@ -104,7 +104,7 @@ func openFileForRead(ctx context.Context, fs *s3fs, name string) (filesystem.Fil
 
 type file struct {
 	ctx  context.Context
-	fs   *s3fs
+	fs   *fs
 	name string
 
 	// reader

@@ -5,6 +5,6 @@ import (
 	"golang.org/x/net/webdav"
 )
 
-func NewLocalFS(prefix string) filesystem.FileSystem {
+func NewFS(prefix string) filesystem.FileSystem {
 	return webdav.Dir(prefix)
 }

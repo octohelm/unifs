@@ -29,18 +29,24 @@ func (m *FileSystemBackend) Init(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		m.fsi = s3.NewS3FS(c, conf.Bucket(), conf.Prefix())
+		m.fsi = s3.NewFS(c, conf.Bucket(), conf.Prefix())
+		return nil
 	case "webdav":
 		conf := &webdav.Config{Endpoint: m.Backend}
 		c, err := conf.Client(ctx)
 		if err != nil {
 			return err
 		}
-		m.fsi = webdav.NewWebdavFS(c)
+		m.fsi = webdav.NewFS(c)
+		return nil
 	case "file":
-		m.fsi = local.NewLocalFS(m.Backend.Path)
+		m.fsi = local.NewFS(m.Backend.Path)
+		return nil
 	default:
 		return errors.Errorf("unsupported %s", m.Backend)
 	}
-	return nil
+}
+
+func (m *FileSystemBackend) InjectContext(ctx context.Context) context.Context {
+	return filesystem.Context.Inject(ctx, m.fsi)
 }

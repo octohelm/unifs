@@ -54,6 +54,9 @@ mount.s3:
 serve.webdav: install
 	unifs webdav --backend=file:///tmp/data
 
+serve.ftp: install
+	unifs ftp --backend=file:///tmp/data
+
 test.remote.s3:
 	TEST_S3_ENDPOINT=$(UNIFS_S3_ENDPOINT) \
 		go test -v -failfast ./pkg/filesystem/s3/...

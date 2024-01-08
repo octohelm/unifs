@@ -5,8 +5,6 @@ import (
 	"os"
 	"syscall"
 
-	"github.com/davecgh/go-spew/spew"
-
 	"github.com/hanwen/go-fuse/v2/fs"
 	"github.com/hanwen/go-fuse/v2/fuse"
 
@@ -105,7 +103,6 @@ func (n *node) Create(ctx context.Context, name string, flags uint32, mode uint3
 func (n *node) Open(ctx context.Context, flags uint32) (fh fs.FileHandle, fuseFlags uint32, errno syscall.Errno) {
 	f, err := n.fsi().OpenFile(ctx, n.path(), int(flags), os.ModePerm)
 	if err != nil {
-		spew.Dump(err)
 		return nil, 0, fs.ToErrno(err)
 	}
 	return &file{f: f}, 0, 0

@@ -58,7 +58,7 @@ func newFakeS3FS(t *testing.T) filesystem.FileSystem {
 		t.Fatal(err)
 	}
 
-	return NewS3FS(c, conf.Bucket(), conf.Prefix())
+	return NewFS(c, conf.Bucket(), conf.Prefix())
 }
 
 func fakeS3Server(t *testing.T) *httptest.Server {

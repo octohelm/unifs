@@ -59,7 +59,7 @@ func newWebdavFS(t *testing.T, debug bool) filesystem.FileSystem {
 		t.Fatal(err)
 	}
 
-	return NewWebdavFS(c)
+	return NewFS(c)
 }
 
 func webdavServer(t *testing.T, debug bool) *httptest.Server {

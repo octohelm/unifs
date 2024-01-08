@@ -15,6 +15,14 @@ var (
 	SkipAll = fs.SkipAll
 )
 
+func Open(ctx context.Context, system FileSystem, name string) (File, error) {
+	return system.OpenFile(ctx, name, os.O_RDONLY, 0)
+}
+
+func Create(ctx context.Context, system FileSystem, name string) (File, error) {
+	return system.OpenFile(ctx, name, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
+}
+
 func MkdirAll(ctx context.Context, fsys FileSystem, path string) error {
 	dir, err := Stat(ctx, fsys, path)
 	if err == nil {

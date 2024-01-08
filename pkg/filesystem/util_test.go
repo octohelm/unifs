@@ -16,7 +16,7 @@ func TestMkdirAll(t *testing.T) {
 		_ = os.RemoveAll(tmp)
 	})
 
-	fs := local.NewLocalFS(tmp)
+	fs := local.NewFS(tmp)
 	err := filesystem.MkdirAll(context.Background(), fs, "path/to/deep")
 	testingx.Expect(t, err, testingx.Be[error](nil))
 }
