@@ -15,6 +15,16 @@ var (
 	SkipAll = fs.SkipAll
 )
 
+func Write(ctx context.Context, system FileSystem, name string, data []byte) error {
+	f, err := system.OpenFile(ctx, name, os.O_RDWR|os.O_CREATE|os.O_TRUNC, os.ModePerm)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	_, err = f.Write(data)
+	return err
+}
+
 func Open(ctx context.Context, system FileSystem, name string) (File, error) {
 	return system.OpenFile(ctx, name, os.O_RDONLY, 0)
 }
