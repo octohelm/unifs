@@ -58,7 +58,7 @@ func (e Endpoint) Base() string {
 }
 
 func (e Endpoint) IsZero() bool {
-	return e.Hostname == ""
+	return e.Scheme == ""
 }
 
 func (e Endpoint) SecurityString() string {
