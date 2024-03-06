@@ -4,8 +4,6 @@ import (
 	"context"
 	"net/url"
 
-	"github.com/pkg/errors"
-
 	"github.com/octohelm/unifs/pkg/filesystem/webdav/client"
 	"github.com/octohelm/unifs/pkg/strfmt"
 )
@@ -40,13 +38,6 @@ func (c *Config) Client(ctx context.Context) (client.Client, error) {
 	_, err := c.c.PropFind(ctx, "/", 0, nil)
 	if err != nil {
 		return nil, err
-	}
-
-	if c.Endpoint.Path != "" {
-		err := c.c.MkCol(ctx, "/")
-		if err != nil {
-			return nil, errors.Wrap(err, "MkCol failed")
-		}
 	}
 
 	return c.c, nil
