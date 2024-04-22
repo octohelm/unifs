@@ -2,11 +2,11 @@ ifneq ( ,$(wildcard .secrets/local.mk))
 	include .secrets/local.mk
 endif
 
-WAGON = wagon -p wagon.cue
+PIPER = TTY=0 piper -p piper.cue
 
 DEBUG = 0
 ifeq ($(DEBUG),1)
-	WAGON := $(WAGON) --log-level=debug
+	PIPER := $(PIPER) --log-level=debug
 endif
 
 UNIFS = go run ./cmd/unifs
@@ -15,10 +15,7 @@ gen:
 	go run ./tool/internal/cmd/tool gen ./cmd/kubepkg
 
 ship:
-	$(WAGON) do go ship pushx
-
-manifests:
-	$(WAGON) do export manifests --output .tmp/
+	$(PIPER) do ship push
 
 fmt:
 	cue fmt -s ./cuepkg/...
