@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"golang.org/x/net/webdav"
 )
@@ -48,6 +49,12 @@ func (f *subFS) fixErr(err error) error {
 }
 
 func (f *subFS) fullName(op, name string) (string, error) {
+	if strings.HasPrefix(name, "/") {
+		name = name[1:]
+	}
+	if name == "" {
+		name = "."
+	}
 	if !fs.ValidPath(name) {
 		return "", &fs.PathError{Op: op, Path: name, Err: errors.New("invalid name")}
 	}

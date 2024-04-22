@@ -6,6 +6,7 @@ toolchain go1.22.2
 
 require (
 	github.com/container-storage-interface/spec v1.9.0
+	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/fclairamb/ftpserverlib v0.24.0
 	github.com/go-courier/logr v0.3.0
 	github.com/golang/protobuf v1.5.4

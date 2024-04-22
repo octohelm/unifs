@@ -2,6 +2,8 @@ package ftp
 
 import (
 	"context"
+	"fmt"
+	"net/url"
 	"os"
 	"testing"
 	"time"
@@ -37,12 +39,16 @@ func TestFTPFS(t *testing.T) {
 	c := &Config{}
 	e, _ := strfmt.ParseEndpoint("ftp://" + ftpServer.Addr)
 	c.Endpoint = *e
+	c.Endpoint.Extra = url.Values{}
+	c.Endpoint.Extra.Set("maxConnections", "2")
 
 	t.Run("Simple", func(t *testing.T) {
 		testutil.TestSimpleFS(t, NewFS(c))
+		fmt.Println(c.p.count)
 	})
 
 	t.Run("Full", func(t *testing.T) {
 		testutil.TestFullFS(t, NewFS(c))
+		fmt.Println(c.p.count)
 	})
 }

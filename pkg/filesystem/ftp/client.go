@@ -2,6 +2,7 @@ package ftp
 
 import (
 	"context"
+	"fmt"
 	"github.com/jackc/puddle/v2"
 	"io"
 	"net/url"
@@ -76,6 +77,7 @@ func (p *Pool) Conn(ctx context.Context, args ...any) (Conn, error) {
 				return c, nil
 			},
 			Destructor: func(sc *ftp.ServerConn) {
+				fmt.Println("Destructor")
 				_ = sc.Quit()
 			},
 			MaxSize: maxConnections,
@@ -97,17 +99,22 @@ func (p *Pool) Conn(ctx context.Context, args ...any) (Conn, error) {
 
 	return &conn{
 		idx: atomic.AddInt64(&p.count, 1),
+		onClose: func() {
+			atomic.AddInt64(&p.count, -1)
+		},
 		res: res,
 	}, nil
 }
 
 type conn struct {
-	idx int64
-	res *puddle.Resource[*ftp.ServerConn]
+	idx     int64
+	onClose func()
+	res     *puddle.Resource[*ftp.ServerConn]
 }
 
 func (c *conn) Close() error {
 	c.res.Release()
+	c.onClose()
 	return nil
 }
 
