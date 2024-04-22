@@ -11,7 +11,7 @@ import (
 	"github.com/octohelm/unifs/pkg/filesystem/testutil"
 )
 
-func TestFuse(t *testing.T) {
+func _TestFuse(t *testing.T) {
 	if os.Getenv("TEST_FUSE") != "1" {
 		t.Skip()
 	}

@@ -3,15 +3,12 @@ package webdav
 import (
 	"context"
 	"fmt"
-	"net/http"
-	"os"
-	"path/filepath"
-	"testing"
-	"time"
-
 	"github.com/octohelm/unifs/pkg/filesystem"
 	"github.com/octohelm/unifs/pkg/filesystem/testutil"
 	"github.com/octohelm/unifs/pkg/strfmt"
+	"net/http"
+	"os"
+	"testing"
 
 	"net/http/httptest"
 
@@ -45,8 +42,6 @@ func newWebdavFS(t *testing.T, debug bool) filesystem.FileSystem {
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	endpoint.Path = filepath.Clean(fmt.Sprintf("%s/_tmp_%d", endpoint.Path, time.Now().UnixNano()))
 
 	conf := &Config{
 		Endpoint: *endpoint,
