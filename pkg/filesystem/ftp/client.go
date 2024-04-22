@@ -2,12 +2,8 @@ package ftp
 
 import (
 	"context"
-	"fmt"
-	"github.com/jackc/puddle/v2"
 	"io"
 	"net/url"
-	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/jlaffaye/ftp"
@@ -39,113 +35,74 @@ type Pool struct {
 	MaxConnections int32
 	ConnectTimeout time.Duration
 
-	p     *puddle.Pool[*ftp.ServerConn]
-	err   error
-	once  sync.Once
 	count int64
 }
 
 func (p *Pool) Conn(ctx context.Context, args ...any) (Conn, error) {
-	p.once.Do(func() {
-		maxConnections := int32(10)
-		if p.MaxConnections > 0 {
-			maxConnections = p.MaxConnections
-		}
-
-		pool, err := puddle.NewPool(&puddle.Config[*ftp.ServerConn]{
-			Constructor: func(ctx context.Context) (res *ftp.ServerConn, err error) {
-				c, err := ftp.Dial(
-					p.Addr,
-					ftp.DialWithContext(ctx),
-					ftp.DialWithTimeout(p.ConnectTimeout),
-				)
-				if err != nil {
-					return nil, err
-				}
-
-				if p.Auth != nil {
-					pass, _ := p.Auth.Password()
-					if err := c.Login(p.Auth.Username(), pass); err != nil {
-						return nil, err
-					}
-				} else {
-					if err := c.Login("anonymous", "anonymous"); err != nil {
-						return nil, err
-					}
-				}
-
-				return c, nil
-			},
-			Destructor: func(sc *ftp.ServerConn) {
-				fmt.Println("Destructor")
-				_ = sc.Quit()
-			},
-			MaxSize: maxConnections,
-		})
-		if err != nil {
-			p.err = err
-			return
-		}
-		p.p = pool
-	})
-	if p.err != nil {
-		return nil, p.err
+	connectTimeout := time.Second * 5
+	if p.ConnectTimeout > 0 {
+		connectTimeout = p.ConnectTimeout
 	}
 
-	res, err := p.p.Acquire(ctx)
+	c, err := ftp.Dial(
+		p.Addr,
+		ftp.DialWithContext(ctx),
+		ftp.DialWithTimeout(connectTimeout),
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	return &conn{
-		idx: atomic.AddInt64(&p.count, 1),
-		onClose: func() {
-			atomic.AddInt64(&p.count, -1)
-		},
-		res: res,
-	}, nil
+	if p.Auth != nil {
+		pass, _ := p.Auth.Password()
+		if err := c.Login(p.Auth.Username(), pass); err != nil {
+			return nil, err
+		}
+	} else {
+		if err := c.Login("anonymous", "anonymous"); err != nil {
+			return nil, err
+		}
+	}
+
+	return &conn{conn: c}, nil
 }
 
 type conn struct {
-	idx     int64
-	onClose func()
-	res     *puddle.Resource[*ftp.ServerConn]
+	conn *ftp.ServerConn
 }
 
 func (c *conn) Close() error {
-	c.res.Release()
-	c.onClose()
-	return nil
+	return c.conn.Quit()
 }
 
 func (c *conn) MakeDir(path string) error {
-	return c.res.Value().MakeDir(path)
+	return c.conn.MakeDir(path)
 }
 
 func (c *conn) GetEntry(path string) (*ftp.Entry, error) {
-	return c.res.Value().GetEntry(path)
+	return c.conn.GetEntry(path)
 }
 
 func (c *conn) Delete(name string) error {
-	return c.res.Value().Delete(name)
+	return c.conn.Delete(name)
 }
 
 func (c *conn) RemoveDirRecur(name string) error {
-	return c.res.Value().RemoveDirRecur(name)
+	return c.conn.RemoveDirRecur(name)
 }
 
 func (c *conn) Rename(oldName, newName string) error {
-	return c.res.Value().Rename(oldName, newName)
+	return c.conn.Rename(oldName, newName)
 }
 
 func (c *conn) List(path string) ([]*ftp.Entry, error) {
-	return c.res.Value().List(path)
+	return c.conn.List(path)
 }
 
 func (c *conn) StorFrom(path string, reader io.Reader, offset uint64) error {
-	return c.res.Value().StorFrom(path, reader, offset)
+	return c.conn.StorFrom(path, reader, offset)
 }
 
 func (c *conn) RetrFrom(path string, offset uint64) (*ftp.Response, error) {
-	return c.res.Value().RetrFrom(path, offset)
+	return c.conn.RetrFrom(path, offset)
 }

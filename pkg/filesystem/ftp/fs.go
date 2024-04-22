@@ -24,6 +24,10 @@ type fs struct {
 }
 
 func (f *fs) OpenFile(ctx context.Context, name string, flag int, perm os.FileMode) (webdav.File, error) {
+	if name == "" {
+		name = "."
+	}
+
 	c, err := f.c.Conn(ctx)
 	if err != nil {
 		return nil, normalizeError("openfile", name, err)

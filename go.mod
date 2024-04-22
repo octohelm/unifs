@@ -6,13 +6,11 @@ toolchain go1.22.2
 
 require (
 	github.com/container-storage-interface/spec v1.9.0
-	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/fclairamb/ftpserverlib v0.24.0
 	github.com/go-courier/logr v0.3.0
 	github.com/golang/protobuf v1.5.4
 	github.com/hanwen/go-fuse/v2 v2.5.1
 	github.com/innoai-tech/infra v0.0.0-20240421024627-b5fe430870be
-	github.com/jackc/puddle/v2 v2.2.1
 	github.com/jlaffaye/ftp v0.2.0
 	github.com/johannesboyne/gofakes3 v0.0.0-20230506070712-04da935ef877
 	github.com/kubernetes-csi/csi-test/v5 v5.0.0

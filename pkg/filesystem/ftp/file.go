@@ -85,6 +85,10 @@ func (f *file) Read(p []byte) (n int, err error) {
 		f.readCloser = &readCloser{Response: resp, conn: conn}
 	})
 
+	if f.err != nil {
+		return 0, f.err
+	}
+
 	return f.readCloser.Read(p)
 }
 
