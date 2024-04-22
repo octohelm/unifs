@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jlaffaye/ftp"
+	"golang.org/x/sync/errgroup"
 )
 
 type file struct {
@@ -26,19 +27,25 @@ type file struct {
 }
 
 func (f *file) Close() error {
+	eg := &errgroup.Group{}
+
 	if f.writeCloser != nil {
-		err := f.writeCloser.Close()
-		f.writeCloser = nil
-		return err
+		eg.Go(func() error {
+			err := f.writeCloser.Close()
+			f.writeCloser = nil
+			return err
+		})
 	}
 
 	if f.readCloser != nil {
-		err := f.readCloser.Close()
-		f.readCloser = nil
-		return err
+		eg.Go(func() error {
+			err := f.readCloser.Close()
+			f.readCloser = nil
+			return err
+		})
 	}
 
-	return nil
+	return eg.Wait()
 }
 
 func (f *file) Seek(offset int64, whence int) (int64, error) {
@@ -87,8 +94,14 @@ type readCloser struct {
 }
 
 func (c *readCloser) Close() error {
-	err := c.Response.Close()
-	return err
+	eg := &errgroup.Group{}
+	eg.Go(func() error {
+		return c.Response.Close()
+	})
+	eg.Go(func() error {
+		return c.conn.Close()
+	})
+	return eg.Wait()
 }
 
 func (f *file) Write(p []byte) (n int, err error) {
