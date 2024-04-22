@@ -70,19 +70,19 @@ func (f *file) Read(p []byte) (n int, err error) {
 	}
 
 	f.once.Do(func() {
-		c, err := f.client.Conn(f.ctx)
+		conn, err := f.client.Conn(f.ctx)
 		if err != nil {
 			f.err = normalizeError("read", f.entry.Name, err)
 			return
 		}
 
-		resp, err := c.RetrFrom(f.entry.Name, f.offset)
+		resp, err := conn.RetrFrom(f.entry.Name, f.offset)
 		if err != nil {
 			f.err = normalizeError("read", f.entry.Name, err)
 			return
 		}
 
-		f.readCloser = &readCloser{Response: resp, conn: c}
+		f.readCloser = &readCloser{Response: resp, conn: conn}
 	})
 
 	return f.readCloser.Read(p)
@@ -110,7 +110,7 @@ func (f *file) Write(p []byte) (n int, err error) {
 	}
 
 	f.once.Do(func() {
-		c, err := f.client.Conn(f.ctx, "write", f.entry.Name)
+		conn, err := f.client.Conn(f.ctx, "write", f.entry.Name)
 		if err != nil {
 			f.err = normalizeError("write", f.entry.Name, err)
 			return
@@ -123,12 +123,12 @@ func (f *file) Write(p []byte) (n int, err error) {
 
 		go func() {
 			defer func() {
+				_ = conn.Close()
 				_ = r.Close()
-				_ = c.Close()
 				ww.wg.Done()
 			}()
 
-			if err := c.StorFrom(f.entry.Name, r, f.offset); err != nil {
+			if err := conn.StorFrom(f.entry.Name, r, f.offset); err != nil {
 				f.err = normalizeError("write", f.entry.Name, err)
 			}
 		}()
@@ -155,13 +155,13 @@ func (c *writeCloser) Close() error {
 }
 
 func (f *file) Readdir(count int) ([]os.FileInfo, error) {
-	c, err := f.client.Conn(f.ctx)
+	conn, err := f.client.Conn(f.ctx)
 	if err != nil {
 		return nil, normalizeError("write", f.entry.Name, err)
 	}
-	defer c.Close()
+	defer conn.Close()
 
-	entries, err := c.List(f.entry.Name)
+	entries, err := conn.List(f.entry.Name)
 	if err != nil {
 		return nil, normalizeError("readdir", f.entry.Name, err)
 	}

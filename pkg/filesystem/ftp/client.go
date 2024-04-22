@@ -33,7 +33,7 @@ type Conn interface {
 }
 
 type Pool struct {
-	Attr           string
+	Addr           string
 	Auth           *url.Userinfo
 	MaxConnections int32
 	ConnectTimeout time.Duration
@@ -54,14 +54,16 @@ func (p *Pool) Conn(ctx context.Context, args ...any) (Conn, error) {
 		pool, err := puddle.NewPool(&puddle.Config[*ftp.ServerConn]{
 			Constructor: func(ctx context.Context) (res *ftp.ServerConn, err error) {
 				c, err := ftp.Dial(
-					p.Attr,
+					p.Addr,
 					ftp.DialWithContext(ctx),
 					ftp.DialWithTimeout(p.ConnectTimeout),
 				)
+				if err != nil {
+					return nil, err
+				}
 
 				if p.Auth != nil {
 					pass, _ := p.Auth.Password()
-
 					if err := c.Login(p.Auth.Username(), pass); err != nil {
 						return nil, err
 					}
@@ -69,10 +71,6 @@ func (p *Pool) Conn(ctx context.Context, args ...any) (Conn, error) {
 					if err := c.Login("anonymous", "anonymous"); err != nil {
 						return nil, err
 					}
-				}
-
-				if err != nil {
-					return nil, err
 				}
 
 				return c, nil
@@ -88,7 +86,6 @@ func (p *Pool) Conn(ctx context.Context, args ...any) (Conn, error) {
 		}
 		p.p = pool
 	})
-
 	if p.err != nil {
 		return nil, p.err
 	}
@@ -98,10 +95,8 @@ func (p *Pool) Conn(ctx context.Context, args ...any) (Conn, error) {
 		return nil, err
 	}
 
-	idx := atomic.AddInt64(&p.count, 1)
-
 	return &conn{
-		idx: idx,
+		idx: atomic.AddInt64(&p.count, 1),
 		res: res,
 	}, nil
 }
