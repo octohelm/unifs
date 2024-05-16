@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"runtime"
+	"time"
 
 	"github.com/go-courier/logr"
 	"github.com/innoai-tech/infra/pkg/cli"
@@ -48,8 +49,9 @@ func (s *WebDAVServer) Serve(ctx context.Context) error {
 	}
 
 	s.svc = &http.Server{
-		Addr:    s.Addr,
-		Handler: h,
+		Addr:              s.Addr,
+		ReadHeaderTimeout: 10 * time.Second,
+		Handler:           h,
 	}
 
 	logr.FromContext(ctx).Info("serve on %s (%s/%s)", s.svc.Addr, runtime.GOOS, runtime.GOARCH)

@@ -44,7 +44,7 @@ type mounter struct {
 }
 
 func (m *mounter) Mount(mountPoint string) error {
-	if err := os.MkdirAll(mountPoint, os.ModePerm); err != nil {
+	if err := os.MkdirAll(mountPoint, os.ModeDir); err != nil {
 		return err
 	}
 

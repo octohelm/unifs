@@ -62,7 +62,7 @@ func (m *Mounter) Run(ctx context.Context) error {
 		defer dctx.Release()
 	}
 
-	if err := os.MkdirAll(m.MountPoint, os.ModePerm); err != nil {
+	if err := os.MkdirAll(m.MountPoint, os.ModeDir); err != nil {
 		return err
 	}
 
