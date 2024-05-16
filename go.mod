@@ -13,7 +13,7 @@ require (
 	github.com/innoai-tech/infra v0.0.0-20240508041032-12069adfe35c
 	github.com/jlaffaye/ftp v0.2.0
 	github.com/johannesboyne/gofakes3 v0.0.0-20230506070712-04da935ef877
-	github.com/kubernetes-csi/csi-test/v5 v5.0.0
+	github.com/kubernetes-csi/csi-test/v5 v5.2.0
 	github.com/minio/minio-go/v7 v7.0.70
 	github.com/mitchellh/go-ps v1.0.0
 	github.com/octohelm/gengo v0.0.0-20240510051519-974fb897453b
