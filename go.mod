@@ -6,7 +6,7 @@ toolchain go1.22.2
 
 require (
 	github.com/container-storage-interface/spec v1.9.0
-	github.com/fclairamb/ftpserverlib v0.24.0
+	github.com/fclairamb/ftpserverlib v0.24.1
 	github.com/go-courier/logr v0.3.0
 	github.com/golang/protobuf v1.5.4
 	github.com/hanwen/go-fuse/v2 v2.5.1
