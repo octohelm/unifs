@@ -196,7 +196,7 @@ func TestFullFS(t *testing.T, fs filesystem.FileSystem) {
 			}
 			if f != nil {
 				if _, err := f.Write([]byte(parts[1])); err != nil {
-					t.Fatalf("test case #%d %q: Write: %v", i, tc, err)
+					t.Fatalf("test case #%d %q: ExportAsTar: %v", i, tc, err)
 				}
 				if err := f.Close(); err != nil {
 					t.Fatalf("test case #%d %q: Close: %v", i, tc, err)

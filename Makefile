@@ -12,7 +12,7 @@ endif
 UNIFS = go run ./cmd/unifs
 
 gen:
-	go run ./tool/internal/cmd/tool gen ./cmd/kubepkg
+	go run ./internal/cmd/tool gen ./cmd/unifs
 
 ship:
 	$(PIPER) do ship push

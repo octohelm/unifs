@@ -1,7 +1,7 @@
 package csidriver
 
 import (
-	kubepkgspec "github.com/octohelm/kubepkg/cuepkg/kubepkg"
+	kubepkgspec "github.com/octohelm/kubepkgspec/cuepkg/kubepkg"
 )
 
 #Driver: {
