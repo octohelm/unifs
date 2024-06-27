@@ -2,6 +2,7 @@ package ftp
 
 import (
 	"context"
+	"crypto/tls"
 	"io"
 	"net/url"
 	"time"
@@ -34,6 +35,7 @@ type Pool struct {
 	Auth           *url.Userinfo
 	MaxConnections int32
 	ConnectTimeout time.Duration
+	TLSConfig      *tls.Config
 
 	count int64
 }
@@ -44,11 +46,18 @@ func (p *Pool) Conn(ctx context.Context, args ...any) (Conn, error) {
 		connectTimeout = p.ConnectTimeout
 	}
 
-	c, err := ftp.Dial(
-		p.Addr,
+	options := []ftp.DialOption{
 		ftp.DialWithContext(ctx),
 		ftp.DialWithTimeout(connectTimeout),
-	)
+	}
+
+	if p.TLSConfig != nil {
+		options = append(options,
+			ftp.DialWithTLS(p.TLSConfig),
+		)
+	}
+
+	c, err := ftp.Dial(p.Addr, options...)
 	if err != nil {
 		return nil, err
 	}

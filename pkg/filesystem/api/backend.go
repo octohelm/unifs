@@ -32,7 +32,7 @@ func (m *FileSystemBackend) Init(ctx context.Context) error {
 		}
 		m.fsi = s3.NewFS(c, conf.Bucket(), conf.Prefix())
 		return nil
-	case "ftp":
+	case "ftp", "ftps":
 		m.fsi = ftp.NewFS(&ftp.Config{Endpoint: m.Backend})
 		return nil
 	case "webdav":
