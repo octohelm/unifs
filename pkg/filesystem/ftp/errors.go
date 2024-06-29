@@ -12,7 +12,7 @@ func normalizeError(op string, path string, err error, values ...any) error {
 	tpErr := &textproto.Error{}
 	if errors.As(err, &tpErr) {
 		switch tpErr.Code {
-		case ftp.StatusFileUnavailable:
+		case ftp.StatusFileUnavailable, ftp.StatusFileActionIgnored:
 			err = os.ErrNotExist
 		case ftp.StatusPathCreated:
 			err = os.ErrExist

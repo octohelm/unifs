@@ -22,8 +22,10 @@ import (
 var _ configuration.Server = &Server{}
 
 type Server struct {
-	Addr       string `flag:"addr,omitempty"`
-	PublicHost string `json:"publicHost,omitempty"`
+	Addr        string `flag:"addr,omitempty"`
+	PublicHost  string `flag:"public-host,omitempty"`
+	DisableMLST bool   `flag:"disable-mlst,omitempty"`
+	DisableMLSD bool   `flag:"disable-mlsd,omitempty"`
 
 	ftp *ftpserver.FtpServer
 }
@@ -43,12 +45,17 @@ func (s *Server) SetDefaults() {
 
 func (s *Server) Serve(ctx context.Context) error {
 	if s.ftp == nil {
-		s.ftp = ftpserver.NewFtpServer(&driver{
-			ListenAddr: s.Addr,
-			PublicHost: s.PublicHost,
-			fs:         filesystem.Context.From(ctx),
-			logger:     logr.FromContext(ctx),
-		})
+		d := &driver{
+			fs:     filesystem.Context.From(ctx),
+			logger: logr.FromContext(ctx),
+		}
+
+		d.ListenAddr = s.Addr
+		d.PublicHost = s.PublicHost
+		d.DisableMLST = s.DisableMLST
+		d.DisableMLSD = s.DisableMLSD
+
+		s.ftp = ftpserver.NewFtpServer(d)
 
 		logr.FromContext(ctx).Info(fmt.Sprintf("ftp serve on %s", s.Addr))
 
@@ -65,8 +72,7 @@ func (s *Server) Shutdown(ctx context.Context) error {
 }
 
 type driver struct {
-	ListenAddr string
-	PublicHost string
+	ftpserver.Settings
 
 	logger logr.Logger
 
@@ -77,10 +83,7 @@ type driver struct {
 }
 
 func (s *driver) GetSettings() (*ftpserver.Settings, error) {
-	return &ftpserver.Settings{
-		ListenAddr: s.ListenAddr,
-		PublicHost: s.PublicHost,
-	}, nil
+	return &s.Settings, nil
 }
 
 func (s *driver) AuthUser(cc ftpserver.ClientContext, user, pass string) (ftpserver.ClientDriver, error) {

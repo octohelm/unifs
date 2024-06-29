@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/textproto"
 	"net/url"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -39,6 +40,7 @@ type Pool struct {
 	MaxConnections int32
 	ConnectTimeout time.Duration
 
+	EnableDebug bool
 	ExplicitTLS bool
 	TLSConfig   *tls.Config
 
@@ -54,6 +56,12 @@ func (p *Pool) Conn(ctx context.Context, args ...any) (Conn, error) {
 	options := []ftp.DialOption{
 		ftp.DialWithContext(ctx),
 		ftp.DialWithTimeout(connectTimeout),
+	}
+
+	if p.EnableDebug {
+		options = append(options,
+			ftp.DialWithDebugOutput(os.Stdout),
+		)
 	}
 
 	if p.TLSConfig != nil {
@@ -109,7 +117,7 @@ func (c *conn) GetEntry(path string) (*ftp.Entry, error) {
 		terr := &textproto.Error{}
 		if errors.As(err, &terr) {
 			if terr.Code == ftp.StatusNotImplemented {
-				if path == "." || path == "" {
+				if path == "" || path == "." || path == "/" {
 					if _, err := c.List(path); err != nil {
 						return nil, err
 					}
@@ -118,30 +126,21 @@ func (c *conn) GetEntry(path string) (*ftp.Entry, error) {
 					}, nil
 				}
 
-				f, err := c.RetrFrom(path, 0)
+				base := filepath.Base(path)
+				list, err := c.List(filepath.Dir(path))
 				if err != nil {
-					terr := &textproto.Error{}
-					if errors.As(err, &terr) {
-						// dir is not opened
-						if terr.Code == ftp.StatusFileUnavailable {
-							// try list to avoid not exists
-							if _, err := c.List(path); err != nil {
-								return nil, err
-							}
-							return &ftp.Entry{
-								Name: filepath.Base(path),
-								Type: ftp.EntryTypeFolder,
-							}, nil
-						}
-					}
 					return nil, err
 				}
-				defer f.Close()
 
-				return &ftp.Entry{
-					Name: filepath.Base(path),
-					Type: ftp.EntryTypeFolder,
-				}, nil
+				for _, x := range list {
+					if x.Name == base {
+						return x, nil
+					}
+				}
+
+				return nil, &textproto.Error{
+					Code: ftp.StatusFileUnavailable,
+				}
 			}
 		}
 

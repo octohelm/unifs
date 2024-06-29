@@ -72,6 +72,14 @@ func (c *Config) Conn(ctx context.Context, args ...any) (Conn, error) {
 			p.MaxConnections = int32(d)
 		}
 
+		if t := c.Endpoint.Extra.Get("enableDebug"); t != "" {
+			d, err := strconv.ParseBool(t)
+			if err != nil {
+				return nil, err
+			}
+			p.EnableDebug = d
+		}
+
 		if c.Endpoint.Scheme == "ftps" {
 			p.TLSConfig = &tls.Config{}
 
