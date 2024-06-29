@@ -2,14 +2,13 @@ package ftp
 
 import (
 	"context"
-	"os"
-	"path"
-	"strings"
-
 	"github.com/jlaffaye/ftp"
 	"github.com/octohelm/unifs/pkg/filesystem"
 	"github.com/pkg/errors"
 	"golang.org/x/net/webdav"
+	"os"
+	"path"
+	"strings"
 )
 
 func NewFS(c *Config) filesystem.FileSystem {
@@ -34,15 +33,17 @@ func (f *fs) OpenFile(ctx context.Context, name string, flag int, perm os.FileMo
 	}
 	defer c.Close()
 
-	// ensure parent exists
-	if strings.Contains(name, "/") {
-		_, err := c.GetEntry(path.Dir(name))
-		if err != nil {
-			return nil, normalizeError("openfile", name, err)
+	createWhenNotExists := flag&os.O_CREATE != 0
+
+	if createWhenNotExists {
+		// ensure parent exists
+		if strings.Contains(name, "/") {
+			_, err := c.GetEntry(path.Dir(name))
+			if err != nil {
+				return nil, normalizeError("openfile", name, err)
+			}
 		}
 	}
-
-	createWhenNotExists := flag&os.O_CREATE != 0
 
 	ftpEntry, err := c.GetEntry(name)
 	if err != nil {
