@@ -151,6 +151,9 @@ func (c *conn) Rename(oldName, newName string) error {
 }
 
 func (c *conn) List(path string) ([]*ftp.Entry, error) {
+	if path == "." {
+		return c.conn.List("")
+	}
 	return c.conn.List(path)
 }
 
