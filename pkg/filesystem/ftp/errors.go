@@ -1,15 +1,16 @@
 package ftp
 
 import (
-	"github.com/jlaffaye/ftp"
-	"net/textproto"
 	"os"
 
+	"github.com/jlaffaye/ftp"
 	"github.com/pkg/errors"
+	"net/textproto"
 )
 
 func normalizeError(op string, path string, err error, values ...any) error {
-	if tpErr, ok := err.(*textproto.Error); ok {
+	tpErr := &textproto.Error{}
+	if errors.As(err, &tpErr) {
 		switch tpErr.Code {
 		case ftp.StatusFileUnavailable:
 			err = os.ErrNotExist

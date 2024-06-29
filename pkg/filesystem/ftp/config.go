@@ -82,6 +82,14 @@ func (c *Config) Conn(ctx context.Context, args ...any) (Conn, error) {
 				}
 				p.TLSConfig.InsecureSkipVerify = d
 			}
+
+			if t := c.Endpoint.Extra.Get("explicitTLS"); t != "" {
+				d, err := strconv.ParseBool(t)
+				if err != nil {
+					return nil, err
+				}
+				p.ExplicitTLS = d
+			}
 		}
 
 		c.p = p

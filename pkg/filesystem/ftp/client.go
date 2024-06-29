@@ -3,8 +3,11 @@ package ftp
 import (
 	"context"
 	"crypto/tls"
+	"github.com/pkg/errors"
 	"io"
+	"net/textproto"
 	"net/url"
+	"path/filepath"
 	"time"
 
 	"github.com/jlaffaye/ftp"
@@ -35,7 +38,9 @@ type Pool struct {
 	Auth           *url.Userinfo
 	MaxConnections int32
 	ConnectTimeout time.Duration
-	TLSConfig      *tls.Config
+
+	ExplicitTLS bool
+	TLSConfig   *tls.Config
 
 	count int64
 }
@@ -52,9 +57,16 @@ func (p *Pool) Conn(ctx context.Context, args ...any) (Conn, error) {
 	}
 
 	if p.TLSConfig != nil {
-		options = append(options,
-			ftp.DialWithTLS(p.TLSConfig),
-		)
+		if p.ExplicitTLS {
+			options = append(options,
+				ftp.DialWithExplicitTLS(p.TLSConfig),
+			)
+		} else {
+			options = append(options,
+				ftp.DialWithTLS(p.TLSConfig),
+			)
+		}
+
 	}
 
 	c, err := ftp.Dial(p.Addr, options...)
@@ -73,7 +85,9 @@ func (p *Pool) Conn(ctx context.Context, args ...any) (Conn, error) {
 		}
 	}
 
-	return &conn{conn: c}, nil
+	return &conn{
+		conn: c,
+	}, nil
 }
 
 type conn struct {
@@ -89,7 +103,39 @@ func (c *conn) MakeDir(path string) error {
 }
 
 func (c *conn) GetEntry(path string) (*ftp.Entry, error) {
-	return c.conn.GetEntry(path)
+	e, err := c.conn.GetEntry(path)
+	if err != nil {
+		// to handle ftp MLST not support
+		terr := &textproto.Error{}
+		if errors.As(err, &terr) {
+			if terr.Code == ftp.StatusNotImplemented {
+				if path == "." || path == "" {
+					if _, err := c.List(path); err != nil {
+						return nil, err
+					}
+					return &ftp.Entry{
+						Type: ftp.EntryTypeFolder,
+					}, nil
+				}
+
+				list, err := c.List(filepath.Dir(path))
+				if err != nil {
+					return nil, err
+				}
+
+				base := filepath.Base(path)
+				for _, x := range list {
+					if x.Name == base {
+						return x, nil
+					}
+				}
+				return nil, &textproto.Error{Code: ftp.StatusFileUnavailable}
+			}
+		}
+
+		return nil, err
+	}
+	return e, nil
 }
 
 func (c *conn) Delete(name string) error {
