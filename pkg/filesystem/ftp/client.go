@@ -118,18 +118,30 @@ func (c *conn) GetEntry(path string) (*ftp.Entry, error) {
 					}, nil
 				}
 
-				list, err := c.List(filepath.Dir(path))
+				f, err := c.RetrFrom(path, 0)
 				if err != nil {
+					terr := &textproto.Error{}
+					if errors.As(err, &terr) {
+						// dir is not opened
+						if terr.Code == ftp.StatusFileUnavailable {
+							// try list to avoid not exists
+							if _, err := c.List(path); err != nil {
+								return nil, err
+							}
+							return &ftp.Entry{
+								Name: filepath.Base(path),
+								Type: ftp.EntryTypeFolder,
+							}, nil
+						}
+					}
 					return nil, err
 				}
+				defer f.Close()
 
-				base := filepath.Base(path)
-				for _, x := range list {
-					if x.Name == base {
-						return x, nil
-					}
-				}
-				return nil, &textproto.Error{Code: ftp.StatusFileUnavailable}
+				return &ftp.Entry{
+					Name: filepath.Base(path),
+					Type: ftp.EntryTypeFolder,
+				}, nil
 			}
 		}
 
