@@ -3,7 +3,7 @@ module github.com/octohelm/unifs
 go 1.22.4
 
 require (
-	github.com/container-storage-interface/spec v1.9.0
+	github.com/container-storage-interface/spec v1.10.0
 	github.com/fclairamb/ftpserverlib v0.24.1
 	github.com/go-courier/logr v0.3.0
 	github.com/golang/protobuf v1.5.4
