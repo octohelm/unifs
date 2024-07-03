@@ -21,7 +21,7 @@ require (
 	github.com/spf13/afero v1.11.0
 	golang.org/x/net v0.26.0
 	golang.org/x/sync v0.7.0
-	google.golang.org/grpc v1.64.0
+	google.golang.org/grpc v1.65.0
 	k8s.io/utils v0.0.0-20240502163921-fe8a2dddb1d0
 )
 
