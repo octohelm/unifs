@@ -3,11 +3,12 @@ package s3
 import (
 	"context"
 	"fmt"
-	"net/http"
-
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/octohelm/unifs/pkg/strfmt"
+	"net/http"
+	"net/http/httptest"
+	"time"
 )
 
 type Config struct {
@@ -22,16 +23,21 @@ func (c *Config) Client(ctx context.Context) (*minio.Client, error) {
 	}
 
 	insecure := false
-	if c.Endpoint.Extra.Get("insecure") == "true" || c.Endpoint.Extra.Get("insecure") == "true" {
+	if c.Endpoint.Extra.Get("insecure") == "true" {
 		insecure = true
 	}
 
 	o := &minio.Options{
 		Creds:  credentials.NewStaticV4(c.Endpoint.Username, c.Endpoint.Password, ""),
 		Secure: !insecure,
-		//Transport: &logRoundTripper{
-		//	nextRoundTripper: &http.Transport{},
-		//},
+	}
+
+	if c.Endpoint.Extra.Get("skipBucketCheck") == "true" {
+		o.Transport = &fakeBucket{
+			name:             c.Bucket(),
+			prefix:           c.Prefix(),
+			nextRoundTripper: &http.Transport{},
+		}
 	}
 
 	client, err := minio.New(c.Endpoint.Host(), o)
@@ -64,6 +70,46 @@ func (c *Config) Prefix() string {
 	}
 	return "/"
 }
+
+type fakeBucket struct {
+	nextRoundTripper http.RoundTripper
+	name             string
+	prefix           string
+}
+
+func (rt *fakeBucket) RoundTrip(req *http.Request) (*http.Response, error) {
+	if req.Method == http.MethodGet && req.URL.Path == "/"+rt.name+"/" {
+		r := httptest.NewRecorder()
+		r.WriteHeader(http.StatusOK)
+		_, _ = r.WriteString(`<?xml version="1.0" encoding="UTF-8"?>
+	<GetBucketResult>
+	  <Bucket>` + rt.name + `</Bucket>
+	  <PublicAccessBlockEnabled>false</PublicAccessBlockEnabled>
+	  <CreationDate>` + time.Now().Format(time.RFC3339) + `</CreationDate>
+	</GetBucketResult>
+	`)
+
+		return r.Result(), nil
+	}
+
+	if req.URL.Path == "/"+rt.name+rt.prefix {
+		resp := httptest.NewRecorder()
+		resp.Header().Set("Last-Modified", time.Now().Format(rfc822TimeFormat))
+		resp.WriteHeader(http.StatusOK)
+		return resp.Result(), nil
+	}
+
+	resp, err := rt.nextRoundTripper.RoundTrip(req)
+	if err != nil {
+		return resp, nil
+	}
+	resp.Header.Set("Last-Modified", time.Now().Format(rfc822TimeFormat))
+	return resp, nil
+}
+
+const (
+	rfc822TimeFormat = "Mon, 2 Jan 2006 15:04:05 GMT"
+)
 
 type logRoundTripper struct {
 	nextRoundTripper http.RoundTripper
