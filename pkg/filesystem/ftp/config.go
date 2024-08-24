@@ -64,14 +64,6 @@ func (c *Config) Conn(ctx context.Context, args ...any) (Conn, error) {
 			p.ConnectTimeout = d
 		}
 
-		if t := c.Endpoint.Extra.Get("maxConnections"); t != "" {
-			d, err := strconv.ParseInt(t, 10, 64)
-			if err != nil {
-				return nil, err
-			}
-			p.MaxConnections = int32(d)
-		}
-
 		if t := c.Endpoint.Extra.Get("enableDebug"); t != "" {
 			d, err := strconv.ParseBool(t)
 			if err != nil {
@@ -81,7 +73,9 @@ func (c *Config) Conn(ctx context.Context, args ...any) (Conn, error) {
 		}
 
 		if c.Endpoint.Scheme == "ftps" {
-			p.TLSConfig = &tls.Config{}
+			p.TLSConfig = &tls.Config{
+				MinVersion: tls.VersionTLS10,
+			}
 
 			if t := c.Endpoint.Extra.Get("insecureSkipVerify"); t != "" {
 				d, err := strconv.ParseBool(t)

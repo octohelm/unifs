@@ -3,7 +3,6 @@ package ftp
 import (
 	"context"
 	"crypto/tls"
-	"github.com/pkg/errors"
 	"io"
 	"net/textproto"
 	"net/url"
@@ -12,6 +11,7 @@ import (
 	"time"
 
 	"github.com/jlaffaye/ftp"
+	"github.com/pkg/errors"
 )
 
 type Client interface {
@@ -37,7 +37,6 @@ type Conn interface {
 type Pool struct {
 	Addr           string
 	Auth           *url.Userinfo
-	MaxConnections int32
 	ConnectTimeout time.Duration
 
 	EnableDebug bool

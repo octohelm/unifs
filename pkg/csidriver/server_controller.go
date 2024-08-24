@@ -11,6 +11,8 @@ import (
 )
 
 type controllerServer struct {
+	csi.UnsafeControllerServer
+
 	DriverContext
 
 	l logr.Logger

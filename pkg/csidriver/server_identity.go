@@ -9,6 +9,8 @@ import (
 )
 
 type identityServer struct {
+	csi.UnsafeIdentityServer
+
 	DriverContext
 
 	l logr.Logger

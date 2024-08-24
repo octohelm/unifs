@@ -10,6 +10,8 @@ import (
 )
 
 type nodeServer struct {
+	csi.UnsafeNodeServer
+
 	DriverContext
 
 	l logr.Logger
