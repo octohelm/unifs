@@ -13,6 +13,7 @@ import (
 )
 
 type FileSystemBackend struct {
+	// 地址
 	Backend strfmt.Endpoint `flag:"backend"`
 
 	fsi filesystem.FileSystem `flag:"-"`

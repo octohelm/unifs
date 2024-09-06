@@ -19,6 +19,8 @@ func (v Config) RuntimeDoc(names ...string) ([]string, bool) {
 		switch names[0] {
 		case "Endpoint":
 			return []string{}, true
+		case "TLS":
+			return []string{}, true
 
 		}
 
@@ -34,9 +36,28 @@ func (v Pool) RuntimeDoc(names ...string) ([]string, bool) {
 			return []string{}, true
 		case "Auth":
 			return []string{}, true
-		case "MaxConnections":
-			return []string{}, true
 		case "ConnectTimeout":
+			return []string{}, true
+		case "EnableDebug":
+			return []string{}, true
+		case "ExplicitTLS":
+			return []string{}, true
+		case "TLSConfig":
+			return []string{}, true
+
+		}
+
+		return nil, false
+	}
+	return []string{}, true
+}
+
+func (v TLS) RuntimeDoc(names ...string) ([]string, bool) {
+	if len(names) > 0 {
+		switch names[0] {
+		case "CertData":
+			return []string{}, true
+		case "KeyData":
 			return []string{}, true
 
 		}

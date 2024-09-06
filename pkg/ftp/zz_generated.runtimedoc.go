@@ -37,6 +37,10 @@ func (v Server) RuntimeDoc(names ...string) ([]string, bool) {
 			return []string{}, true
 		case "PublicHost":
 			return []string{}, true
+		case "DisableMLST":
+			return []string{}, true
+		case "DisableMLSD":
+			return []string{}, true
 
 		}
 
