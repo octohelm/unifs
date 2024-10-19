@@ -2,6 +2,7 @@ package s3
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -10,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/minio/minio-go/v7"
-	"github.com/pkg/errors"
 	"golang.org/x/net/webdav"
 
 	"github.com/octohelm/unifs/pkg/filesystem"
@@ -45,7 +45,6 @@ func (fsys *fs) Mkdir(ctx context.Context, name string, perm os.FileMode) error 
 	}
 	_ = f.Close()
 	return nil
-
 }
 
 func (fsys *fs) OpenFile(ctx context.Context, name string, flag int, perm os.FileMode) (webdav.File, error) {
@@ -131,9 +130,8 @@ func (fsys *fs) Rename(ctx context.Context, oldName, newName string) error {
 			Object: fsys.path(oldName),
 		},
 	)
-
 	if err != nil {
-		return errors.Wrap(err, "copy failed")
+		return fmt.Errorf("copy failed: %w", err)
 	}
 
 	return fsys.forceRemove(ctx, oldName, false)
@@ -141,7 +139,7 @@ func (fsys *fs) Rename(ctx context.Context, oldName, newName string) error {
 
 func (fsys *fs) RemoveAll(ctx context.Context, name string) error {
 	if name == "/" {
-		return errors.Wrap(os.ErrPermission, "rm '/' not allow")
+		return fmt.Errorf("rm '/' not allow: %w", os.ErrPermission)
 	}
 
 	f := &file{

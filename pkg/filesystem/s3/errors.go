@@ -1,6 +1,6 @@
 package s3
 
-import "github.com/pkg/errors"
+import "errors"
 
 var (
 	ErrNotImplemented = errors.New("not implemented")

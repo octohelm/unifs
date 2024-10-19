@@ -10,8 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"github.com/octohelm/unifs/pkg/filesystem"
 )
 
@@ -45,7 +43,7 @@ func (b *Benchmark) RunT(t *testing.T, fsi filesystem.FileSystem) {
 
 func (b *Benchmark) Test(ctx context.Context, fsi filesystem.FileSystem) error {
 	if err := fsi.Mkdir(ctx, b.Workspace, os.ModePerm); err != nil {
-		return errors.Wrapf(err, "mkdir failed")
+		return fmt.Errorf("mkdir failed: %w", err)
 	}
 
 	defer func() {
@@ -96,13 +94,13 @@ func (b *Benchmark) testBigFileRead(ctx context.Context, fsi filesystem.FileSyst
 
 	f, err := fsi.OpenFile(ctx, filepath.Join(b.Workspace, "big_file"), os.O_RDONLY, os.ModePerm)
 	if err != nil {
-		return "", errors.Wrapf(err, "Open failed")
+		return "", fmt.Errorf("open failed: %w", err)
 	}
 	defer f.Close()
 
 	_, err = io.Copy(io.Discard, f)
 	if err != nil {
-		return "", errors.Wrapf(err, "Copy failed")
+		return "", fmt.Errorf("copy failed: %w", err)
 	}
 
 	return fmt.Sprintf("TestBigFileRead: %s", FileSize(b.BigFileSize*uint64(bufSize)).Speed(time.Since(started))), nil

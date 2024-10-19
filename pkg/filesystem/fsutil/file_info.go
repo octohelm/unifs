@@ -40,9 +40,9 @@ func (fi *fileInfo) Size() int64 {
 
 func (fi *fileInfo) Mode() fs.FileMode {
 	if fi.directory {
-		return 0755
+		return 0o755
 	}
-	return 0664
+	return 0o664
 }
 
 func (fi *fileInfo) ModTime() time.Time {

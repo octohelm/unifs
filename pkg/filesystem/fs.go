@@ -7,8 +7,10 @@ import (
 	"golang.org/x/net/webdav"
 )
 
-type FileSystem = webdav.FileSystem
-type File = webdav.File
-type FileInfo = os.FileInfo
+type (
+	FileSystem = webdav.FileSystem
+	File       = webdav.File
+	FileInfo   = os.FileInfo
+)
 
 var Context = contextx.New[FileSystem]()

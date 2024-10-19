@@ -30,7 +30,7 @@ func Open(ctx context.Context, system FileSystem, name string) (File, error) {
 }
 
 func Create(ctx context.Context, system FileSystem, name string) (File, error) {
-	return system.OpenFile(ctx, name, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
+	return system.OpenFile(ctx, name, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o666)
 }
 
 func MkdirAll(ctx context.Context, fsys FileSystem, path string) error {

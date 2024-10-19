@@ -3,12 +3,13 @@ package s3
 import (
 	"context"
 	"fmt"
-	"github.com/minio/minio-go/v7"
-	"github.com/minio/minio-go/v7/pkg/credentials"
-	"github.com/octohelm/unifs/pkg/strfmt"
 	"net/http"
 	"net/http/httptest"
 	"time"
+
+	"github.com/minio/minio-go/v7"
+	"github.com/minio/minio-go/v7/pkg/credentials"
+	"github.com/octohelm/unifs/pkg/strfmt"
 )
 
 type Config struct {

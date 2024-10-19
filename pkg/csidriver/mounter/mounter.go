@@ -2,13 +2,12 @@ package mounter
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"strings"
 	"time"
-
-	"github.com/pkg/errors"
 
 	"github.com/mitchellh/go-ps"
 	"github.com/octohelm/unifs/pkg/filesystem/api"
@@ -63,7 +62,7 @@ func (m *mounter) Mount(mountPoint string) error {
 	cmd.Env = os.Environ()
 
 	if err := cmd.Run(); err != nil {
-		return errors.Wrapf(err, "FuseMount: %s\n", append([]string{p}, args...))
+		return fmt.Errorf("FuseMount: %s: %w", append([]string{p}, args...), err)
 	}
 
 	return waitForMount(mountPoint, 10*time.Second)
@@ -96,7 +95,7 @@ func FuseUnmount(path string) error {
 
 func waitForMount(path string, timeout time.Duration) error {
 	var elapsed time.Duration
-	var interval = 10 * time.Millisecond
+	interval := 10 * time.Millisecond
 	for {
 		notMount, err := mount.New("").IsLikelyNotMountPoint(path)
 		if err != nil {

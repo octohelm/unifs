@@ -2,10 +2,10 @@ package csidriver
 
 import (
 	"context"
+	"errors"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/go-courier/logr"
-	"github.com/pkg/errors"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )

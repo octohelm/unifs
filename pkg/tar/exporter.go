@@ -3,11 +3,12 @@ package tar
 import (
 	"archive/tar"
 	"context"
-	"github.com/octohelm/unifs/pkg/filesystem"
 	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
+
+	"github.com/octohelm/unifs/pkg/filesystem"
 )
 
 func WithBase(base string) ExportOption {

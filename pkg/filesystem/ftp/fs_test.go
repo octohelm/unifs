@@ -3,7 +3,6 @@ package ftp
 import (
 	"context"
 	"fmt"
-
 	"net/url"
 	"os"
 	"testing"

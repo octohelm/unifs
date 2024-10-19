@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
-
 	"github.com/go-courier/logr/slog"
 )
 
@@ -63,7 +62,6 @@ func TestController(t *testing.T) {
 				if !reflect.DeepEqual(resp, c.resp) {
 					t.Errorf("c %q failed: got resp %+v, expected %+v", c.name, resp, c.resp)
 				}
-
 			})
 		}
 	})

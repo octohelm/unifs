@@ -17,11 +17,11 @@ gen:
 ship:
 	$(PIPER) do ship push
 
-fmt:
+fmt.go:
+	gofumpt -w -l .
+
+fmt.cue:
 	cue fmt -s ./cuepkg/...
-	cue fmt -s ./cuedevpkg/...
-	goimports -w ./pkg
-	goimports -w ./cmd
 
 dep:
 	go get -u ./pkg/...

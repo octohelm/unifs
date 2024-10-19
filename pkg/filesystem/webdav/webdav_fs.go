@@ -8,8 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/pkg/errors"
-
 	"golang.org/x/net/webdav"
 
 	"github.com/octohelm/unifs/pkg/filesystem"
@@ -51,12 +49,11 @@ func (fs *fs) Mkdir(ctx context.Context, name string, perm os.FileMode) error {
 	}
 	_ = f.Close()
 	return nil
-
 }
 
 func (fs *fs) RemoveAll(ctx context.Context, name string) error {
 	if name == "/" {
-		return errors.Wrap(os.ErrPermission, "rm '/' not allow")
+		return fmt.Errorf("rm '/' not allow: %w", os.ErrPermission)
 	}
 	return fs.c.Delete(ctx, name)
 }

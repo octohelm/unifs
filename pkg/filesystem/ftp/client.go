@@ -3,6 +3,7 @@ package ftp
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"io"
 	"net/textproto"
 	"net/url"
@@ -11,7 +12,6 @@ import (
 	"time"
 
 	"github.com/jlaffaye/ftp"
-	"github.com/pkg/errors"
 )
 
 type Client interface {
@@ -73,7 +73,6 @@ func (p *Pool) Conn(ctx context.Context, args ...any) (Conn, error) {
 				ftp.DialWithTLS(p.TLSConfig),
 			)
 		}
-
 	}
 
 	c, err := ftp.Dial(p.Addr, options...)

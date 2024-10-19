@@ -2,13 +2,14 @@ package ftp
 
 import (
 	"context"
-	"github.com/jlaffaye/ftp"
-	"github.com/octohelm/unifs/pkg/filesystem"
-	"github.com/pkg/errors"
-	"golang.org/x/net/webdav"
+	"errors"
 	"os"
 	"path"
 	"strings"
+
+	"github.com/jlaffaye/ftp"
+	"github.com/octohelm/unifs/pkg/filesystem"
+	"golang.org/x/net/webdav"
 )
 
 func NewFS(c *Config) filesystem.FileSystem {

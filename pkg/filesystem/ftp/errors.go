@@ -1,11 +1,12 @@
 package ftp
 
 import (
+	"errors"
+	"fmt"
+	"net/textproto"
 	"os"
 
 	"github.com/jlaffaye/ftp"
-	"github.com/pkg/errors"
-	"net/textproto"
 )
 
 func normalizeError(op string, path string, err error, values ...any) error {
@@ -23,7 +24,7 @@ func normalizeError(op string, path string, err error, values ...any) error {
 		return &os.PathError{
 			Op:   op,
 			Path: path,
-			Err:  errors.Wrapf(err, "%v", values),
+			Err:  fmt.Errorf("%v: %w", values, err),
 		}
 	}
 

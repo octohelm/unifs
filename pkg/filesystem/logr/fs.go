@@ -2,9 +2,9 @@ package logr
 
 import (
 	"context"
-	"github.com/go-courier/logr"
 	"os"
 
+	"github.com/go-courier/logr"
 	"github.com/octohelm/unifs/pkg/filesystem"
 )
 

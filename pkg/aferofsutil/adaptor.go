@@ -2,12 +2,13 @@ package aferofsutil
 
 import (
 	"context"
-	"github.com/octohelm/unifs/pkg/filesystem"
-	"github.com/spf13/afero"
 	"io"
 	"io/fs"
 	"os"
 	"time"
+
+	"github.com/octohelm/unifs/pkg/filesystem"
+	"github.com/spf13/afero"
 )
 
 func From(fs filesystem.FileSystem) afero.Fs {
@@ -21,7 +22,7 @@ type adaptor struct {
 }
 
 func (a *adaptor) Create(name string) (afero.File, error) {
-	return a.OpenFile(name, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
+	return a.OpenFile(name, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o666)
 }
 
 func (a *adaptor) Mkdir(name string, perm os.FileMode) error {

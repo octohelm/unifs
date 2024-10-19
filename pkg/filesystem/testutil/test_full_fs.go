@@ -190,7 +190,7 @@ func TestFullFS(t *testing.T, fs filesystem.FileSystem) {
 			if len(parts) != 4 || parts[2] != "want" {
 				t.Fatalf("test case #%d %q: invalid write", i, tc)
 			}
-			f, opErr := fs.OpenFile(ctx, parts[0], os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
+			f, opErr := fs.OpenFile(ctx, parts[0], os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o666)
 			if got := errStr(opErr); got != parts[3] {
 				t.Fatalf("test case #%d %q: OpenFile: got %q (%v), want %q", i, tc, got, opErr, parts[3])
 			}
@@ -234,7 +234,7 @@ func TestFullFS(t *testing.T, fs filesystem.FileSystem) {
 				}
 				_, opErr = copyFiles(ctx, fs, parts[2], parts[3], parts[0] == "o=T", depth, 0)
 			case "mk-dir":
-				opErr = fs.Mkdir(ctx, parts[0], 0777)
+				opErr = fs.Mkdir(ctx, parts[0], 0o777)
 			case "move__":
 				_, opErr = moveFiles(ctx, fs, parts[1], parts[2], parts[0] == "o=T")
 			case "rm-all":

@@ -3,8 +3,9 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/octohelm/unifs/pkg/csidriver/mounter"
 	"os"
+
+	"github.com/octohelm/unifs/pkg/csidriver/mounter"
 
 	"github.com/go-courier/logr"
 	"github.com/hanwen/go-fuse/v2/fs"
@@ -75,7 +76,7 @@ func (m *Mounter) Run(ctx context.Context) error {
 
 	options := &fs.Options{}
 	options.Name = fmt.Sprintf("%s.fs", b.Backend.Scheme)
-	//options.Debug = true
+	// options.Debug = true
 
 	rawFS := fs.NewNodeFS(fuse.FS(b.FileSystem()), options)
 

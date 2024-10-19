@@ -3,14 +3,14 @@ package webdav
 import (
 	"context"
 	"fmt"
-	"github.com/octohelm/unifs/pkg/filesystem"
-	"github.com/octohelm/unifs/pkg/filesystem/testutil"
-	"github.com/octohelm/unifs/pkg/strfmt"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"testing"
 
-	"net/http/httptest"
+	"github.com/octohelm/unifs/pkg/filesystem"
+	"github.com/octohelm/unifs/pkg/filesystem/testutil"
+	"github.com/octohelm/unifs/pkg/strfmt"
 
 	"golang.org/x/net/webdav"
 )

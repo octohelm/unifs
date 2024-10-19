@@ -6,15 +6,12 @@ import (
 	"net"
 	"strings"
 
-	"github.com/octohelm/unifs/pkg/strfmt"
-	"github.com/pkg/errors"
-
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/go-courier/logr"
 	"github.com/innoai-tech/infra/pkg/configuration"
-	"google.golang.org/grpc"
-
 	"github.com/octohelm/unifs/internal/version"
+	"github.com/octohelm/unifs/pkg/strfmt"
+	"google.golang.org/grpc"
 )
 
 const (
@@ -179,7 +176,7 @@ func volumeFromID(id string) (*volume, error) {
 	segments := strings.Split(id, "#")
 
 	if len(segments) != 4 {
-		return nil, errors.Errorf("invalid id %s", id)
+		return nil, fmt.Errorf("invalid id %s", id)
 	}
 
 	return &volume{

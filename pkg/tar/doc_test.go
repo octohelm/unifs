@@ -2,11 +2,12 @@ package tar
 
 import (
 	"context"
-	"github.com/octohelm/unifs/pkg/filesystem/local"
-	testingx "github.com/octohelm/x/testing"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/octohelm/unifs/pkg/filesystem/local"
+	testingx "github.com/octohelm/x/testing"
 )
 
 func TestWrite(t *testing.T) {

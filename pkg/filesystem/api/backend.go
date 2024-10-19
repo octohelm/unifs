@@ -2,14 +2,14 @@ package api
 
 import (
 	"context"
-	"github.com/octohelm/unifs/pkg/filesystem/ftp"
+	"fmt"
 
 	"github.com/octohelm/unifs/pkg/filesystem"
+	"github.com/octohelm/unifs/pkg/filesystem/ftp"
 	"github.com/octohelm/unifs/pkg/filesystem/local"
 	"github.com/octohelm/unifs/pkg/filesystem/s3"
 	"github.com/octohelm/unifs/pkg/filesystem/webdav"
 	"github.com/octohelm/unifs/pkg/strfmt"
-	"github.com/pkg/errors"
 )
 
 type FileSystemBackend struct {
@@ -48,7 +48,7 @@ func (m *FileSystemBackend) Init(ctx context.Context) error {
 		m.fsi = local.NewFS(m.Backend.Path)
 		return nil
 	default:
-		return errors.Errorf("unsupported %s", m.Backend)
+		return fmt.Errorf("unsupported %s", m.Backend)
 	}
 }
 

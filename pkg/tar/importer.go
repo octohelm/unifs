@@ -3,10 +3,11 @@ package tar
 import (
 	"archive/tar"
 	"context"
-	"github.com/octohelm/unifs/pkg/filesystem"
 	"io"
 	"os"
 	"path/filepath"
+
+	"github.com/octohelm/unifs/pkg/filesystem"
 )
 
 type ImportOption func(t *tarImporter)

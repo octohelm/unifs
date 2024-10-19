@@ -82,8 +82,10 @@ func (val *RawXMLValue) MarshalXML(e *xml.Encoder, start xml.StartElement) error
 	}
 }
 
-var _ xml.Marshaler = (*RawXMLValue)(nil)
-var _ xml.Unmarshaler = (*RawXMLValue)(nil)
+var (
+	_ xml.Marshaler   = (*RawXMLValue)(nil)
+	_ xml.Unmarshaler = (*RawXMLValue)(nil)
+)
 
 func (val *RawXMLValue) Decode(v interface{}) error {
 	return xml.NewTokenDecoder(val.TokenReader()).Decode(&v)
