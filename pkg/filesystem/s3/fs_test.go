@@ -11,9 +11,11 @@ import (
 
 	"github.com/johannesboyne/gofakes3"
 	"github.com/johannesboyne/gofakes3/backend/s3mem"
+	"github.com/octohelm/courier/pkg/courierhttp"
 	"github.com/octohelm/unifs/pkg/filesystem"
 	"github.com/octohelm/unifs/pkg/filesystem/testutil"
 	"github.com/octohelm/unifs/pkg/strfmt"
+	testingx "github.com/octohelm/x/testing"
 )
 
 func TestS3Fs(t *testing.T) {
@@ -32,7 +34,31 @@ func TestS3Fs(t *testing.T) {
 	})
 }
 
-func newFakeS3FS(t *testing.T) filesystem.FileSystem {
+func TestS3WithPresignAs(t *testing.T) {
+	fsys := newFakeS3FS(t, forPresign("https://x.io"))
+	err := fsys.Mkdir(context.Background(), "/x", os.ModePerm|os.ModeDir)
+	testingx.Expect(t, err, testingx.BeNil[error]())
+
+	err = filesystem.Write(context.Background(), fsys, "x.txt", []byte("123"))
+	testingx.Expect(t, err, testingx.BeNil[error]())
+
+	f, err := fsys.OpenFile(context.Background(), "x.txt", os.O_RDONLY, os.ModePerm)
+	testingx.Expect(t, err, testingx.BeNil[error]())
+	defer f.Close()
+
+	testingx.Expect(t, f.(courierhttp.RedirectDescriber).Location().Host, testingx.Be("x.io"))
+}
+
+func forPresign(endpoint string) func(c *Config) {
+	return func(c *Config) {
+		c.Endpoint.Username = "admin"
+		c.Endpoint.Password = "Admin123"
+		c.Endpoint.Extra.Set("presignAs", endpoint)
+		c.Endpoint.Extra.Set("signatureType", "v2")
+	}
+}
+
+func newFakeS3FS(t *testing.T, opts ...func(c *Config)) filesystem.FileSystem {
 	e := os.Getenv("TEST_S3_ENDPOINT")
 
 	if e == "" {
@@ -51,19 +77,25 @@ func newFakeS3FS(t *testing.T) filesystem.FileSystem {
 		Endpoint: *endpoint,
 	}
 
+	for _, opt := range opts {
+		opt(conf)
+	}
+
 	t.Log(conf.Endpoint)
 
-	c, err := (conf).Client(context.Background())
+	fsys, err := (conf).AsFileSystem(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	return NewFS(c, conf.Bucket(), conf.Prefix())
+	return fsys
 }
 
 func fakeS3Server(t *testing.T) *httptest.Server {
 	backend := s3mem.New()
+
 	faker := gofakes3.New(backend)
+
 	svc := httptest.NewServer(faker.Server())
 	t.Cleanup(func() {
 		svc.Close()

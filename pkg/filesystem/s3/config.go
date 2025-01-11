@@ -3,8 +3,10 @@ package s3
 import (
 	"context"
 	"fmt"
+	"github.com/octohelm/unifs/pkg/filesystem"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"time"
 
 	"github.com/minio/minio-go/v7"
@@ -15,12 +17,12 @@ import (
 type Config struct {
 	Endpoint strfmt.Endpoint `flag:",upstream"`
 
-	c *minio.Client `flag:"-"`
+	fs filesystem.FileSystem `flag:"-"`
 }
 
-func (c *Config) Client(ctx context.Context) (*minio.Client, error) {
-	if c.c != nil {
-		return c.c, nil
+func (c *Config) AsFileSystem(ctx context.Context) (filesystem.FileSystem, error) {
+	if c.fs != nil {
+		return c.fs, nil
 	}
 
 	insecure := false
@@ -28,8 +30,26 @@ func (c *Config) Client(ctx context.Context) (*minio.Client, error) {
 		insecure = true
 	}
 
+	var presignAs *url.URL
+
+	if presignAsStr := c.Endpoint.Extra.Get("presignAs"); presignAsStr != "" {
+		u, err := url.Parse(presignAsStr)
+		if err != nil {
+			return nil, err
+		}
+		presignAs = u
+	}
+
+	signatureType := credentials.SignatureV4
+	if signatureTypeStr := c.Endpoint.Extra.Get("signatureType"); signatureTypeStr != "" {
+		switch signatureTypeStr {
+		case "v2":
+			signatureType = credentials.SignatureV2
+		}
+	}
+
 	o := &minio.Options{
-		Creds:  credentials.NewStaticV4(c.Endpoint.Username, c.Endpoint.Password, ""),
+		Creds:  credentials.NewStatic(c.Endpoint.Username, c.Endpoint.Password, "", signatureType),
 		Secure: !insecure,
 	}
 
@@ -43,21 +63,27 @@ func (c *Config) Client(ctx context.Context) (*minio.Client, error) {
 
 	client, err := minio.New(c.Endpoint.Host(), o)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("new s3 client failed: %w", err)
 	}
 
 	ok, err := client.BucketExists(ctx, c.Endpoint.Base())
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("check bucket failed %w", err)
 	}
-
 	if !ok {
 		_ = client.MakeBucket(ctx, c.Endpoint.Base(), minio.MakeBucketOptions{})
 	}
 
-	c.c = client
+	f := &fs{
+		c:         client,
+		bucket:    c.Bucket(),
+		prefix:    c.Prefix(),
+		presignAs: presignAs,
+	}
 
-	return client, nil
+	c.fs = f
+
+	return c.fs, nil
 }
 
 func (c *Config) Bucket() string {

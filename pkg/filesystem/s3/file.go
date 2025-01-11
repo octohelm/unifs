@@ -4,17 +4,20 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/minio/minio-go/v7"
-	"golang.org/x/sync/errgroup"
-
+	"github.com/octohelm/courier/pkg/courierhttp"
 	"github.com/octohelm/unifs/pkg/filesystem"
 	"github.com/octohelm/unifs/pkg/filesystem/fsutil"
+	"golang.org/x/sync/errgroup"
 )
 
 func openDir(ctx context.Context, fs *fs, name string) (filesystem.File, error) {
@@ -86,6 +89,21 @@ func openFileForWrite(ctx context.Context, fs *fs, name string, flags int) (file
 		}
 	}()
 
+	if presignAs := fs.presignAs; presignAs != nil {
+		u, err := fs.c.PresignedPutObject(ctx, fs.bucket, fs.path(name), 5*time.Minute)
+		if err != nil {
+			return nil, err
+		}
+
+		u.Scheme = presignAs.Scheme
+		u.Host = presignAs.Host
+
+		return &preSignedFile{
+			file: f,
+			u:    u,
+		}, nil
+	}
+
 	return f, nil
 }
 
@@ -99,7 +117,37 @@ func openFileForRead(ctx context.Context, fs *fs, name string) (filesystem.File,
 
 	f.object = o
 
+	if presignAs := fs.presignAs; presignAs != nil {
+		u, err := fs.c.PresignedGetObject(ctx, fs.bucket, fs.path(name), 5*time.Minute, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		u.Scheme = presignAs.Scheme
+		u.Host = presignAs.Host
+
+		return &preSignedFile{
+			file: f,
+			u:    u,
+		}, nil
+	}
+
 	return f, nil
+}
+
+var _ courierhttp.RedirectDescriber = &preSignedFile{}
+
+type preSignedFile struct {
+	*file
+	u *url.URL
+}
+
+func (preSignedFile) StatusCode() int {
+	return http.StatusTemporaryRedirect
+}
+
+func (f *preSignedFile) Location() *url.URL {
+	return f.u
 }
 
 type file struct {

@@ -5,21 +5,22 @@ go 1.23.4
 require (
 	github.com/go-courier/logr v0.3.1
 	github.com/innoai-tech/infra v0.0.0-20250109061318-14294167429e
+	github.com/octohelm/courier v0.0.0-20250109060539-e7e7b35c1a99
 	github.com/octohelm/gengo v0.0.0-20250104080658-4527b142baef
 	github.com/octohelm/x v0.0.0-20250109055815-dda0e47e75ea
 )
 
 require (
-	github.com/container-storage-interface/spec v1.10.0
-	github.com/fclairamb/ftpserverlib v0.24.1
-	github.com/hanwen/go-fuse/v2 v2.6.1
+	github.com/container-storage-interface/spec v1.11.0
+	github.com/fclairamb/ftpserverlib v0.25.0
+	github.com/hanwen/go-fuse/v2 v2.7.2
 	github.com/jlaffaye/ftp v0.2.0
-	github.com/johannesboyne/gofakes3 v0.0.0-20230506070712-04da935ef877
-	github.com/kubernetes-csi/csi-test/v5 v5.0.0
+	github.com/johannesboyne/gofakes3 v0.0.0-20250106100439-5c39aecd6999
+	github.com/kubernetes-csi/csi-test/v5 v5.3.1
 	github.com/minio/minio-go/v7 v7.0.83
 	github.com/mitchellh/go-ps v1.0.0
 	github.com/sevlyar/go-daemon v0.1.6
-	github.com/spf13/afero v1.11.0
+	github.com/spf13/afero v1.12.0
 	golang.org/x/net v0.34.0
 	golang.org/x/sync v0.10.0
 	google.golang.org/grpc v1.69.2
@@ -34,7 +35,6 @@ require (
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/cockroachdb/apd/v3 v3.2.1 // indirect
-	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/fatih/color v1.18.0 // indirect
 	github.com/fclairamb/go-log v0.5.0 // indirect
@@ -44,6 +44,7 @@ require (
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
 	github.com/goccy/go-json v0.10.4 // indirect
+	github.com/golang/mock v1.6.0 // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/pprof v0.0.0-20241210010833-40e02aabc2ad // indirect
 	github.com/google/uuid v1.6.0 // indirect
@@ -54,7 +55,7 @@ require (
 	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0 // indirect
 	github.com/klauspost/compress v1.17.11 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.9 // indirect
-	github.com/mattn/go-colorable v0.1.13 // indirect
+	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/minio/md5-simd v1.1.2 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
@@ -67,7 +68,6 @@ require (
 	github.com/prometheus/procfs v0.15.1 // indirect
 	github.com/rs/xid v1.6.0 // indirect
 	github.com/ryszard/goskiplist v0.0.0-20150312221310-2dfbae5fcf46 // indirect
-	github.com/shabbyrobe/gocovmerge v0.0.0-20190829150210-3e036491d500 // indirect
 	github.com/spf13/cobra v1.8.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
@@ -83,9 +83,9 @@ require (
 	go.opentelemetry.io/otel/sdk/metric v1.33.0 // indirect
 	go.opentelemetry.io/otel/trace v1.33.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.5.0 // indirect
+	go.shabbyrobe.org/gocovmerge v0.0.0-20230507111327-fa4f82cfbf4d // indirect
 	golang.org/x/crypto v0.32.0 // indirect
 	golang.org/x/mod v0.22.0 // indirect
-	golang.org/x/oauth2 v0.25.0 // indirect
 	golang.org/x/sys v0.29.0 // indirect
 	golang.org/x/text v0.21.0 // indirect
 	golang.org/x/tools v0.29.0 // indirect

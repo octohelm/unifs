@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -13,22 +14,14 @@ import (
 	"github.com/minio/minio-go/v7"
 	"golang.org/x/net/webdav"
 
-	"github.com/octohelm/unifs/pkg/filesystem"
 	"github.com/octohelm/unifs/pkg/filesystem/fsutil"
 )
 
-func NewFS(c *minio.Client, bucket string, prefix string) filesystem.FileSystem {
-	return &fs{
-		bucket: bucket,
-		prefix: prefix,
-		c:      c,
-	}
-}
-
 type fs struct {
-	c      *minio.Client
-	bucket string
-	prefix string
+	c         *minio.Client
+	presignAs *url.URL
+	bucket    string
+	prefix    string
 }
 
 func (fsys *fs) Mkdir(ctx context.Context, name string, perm os.FileMode) error {

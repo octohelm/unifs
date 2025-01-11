@@ -27,11 +27,11 @@ func (m *FileSystemBackend) Init(ctx context.Context) error {
 	switch m.Backend.Scheme {
 	case "s3":
 		conf := &s3.Config{Endpoint: m.Backend}
-		c, err := conf.Client(ctx)
+		fsys, err := conf.AsFileSystem(ctx)
 		if err != nil {
 			return err
 		}
-		m.fsi = s3.NewFS(c, conf.Bucket(), conf.Prefix())
+		m.fsi = fsys
 		return nil
 	case "ftp", "ftps":
 		m.fsi = ftp.NewFS(&ftp.Config{Endpoint: m.Backend})
