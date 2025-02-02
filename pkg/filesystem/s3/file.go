@@ -32,7 +32,7 @@ func openDir(ctx context.Context, fs *fs, name string) (filesystem.File, error) 
 				}
 			}
 
-			_, err := fs.c.PutObject(ctx, fs.bucket, fs.path(path.Join(name, dirHolder)), bytes.NewBuffer(nil), 0, minio.PutObjectOptions{})
+			_, err := fs.s3Client.PutObject(ctx, fs.bucket, fs.path(path.Join(name, dirHolder)), bytes.NewBuffer(nil), 0, minio.PutObjectOptions{})
 			if err != nil {
 				return nil, err
 			}
@@ -67,6 +67,18 @@ func openFileForWrite(ctx context.Context, fs *fs, name string, flags int) (file
 	f.streamWriter = writer
 	f.streamWriterErrCh = make(chan error)
 
+	putOptions := minio.PutObjectOptions{}
+
+	metadata := filesystem.MetadataFromContext(ctx)
+
+	if v := metadata.Get("Content-Type"); v != "" {
+		putOptions.ContentType = v
+	}
+
+	if v := metadata.Get("Cache-Control"); v != "" {
+		putOptions.CacheControl = v
+	}
+
 	go func() {
 		var err error
 		defer func() {
@@ -76,21 +88,21 @@ func openFileForWrite(ctx context.Context, fs *fs, name string, flags int) (file
 		if flags&os.O_CREATE != 0 {
 			// when create new file
 			// to put 0x00 as placeholder
-			_, err := f.fs.c.PutObject(f.ctx, f.fs.bucket, f.fs.path(f.name), bytes.NewBuffer([]byte{0x00}), 1, minio.PutObjectOptions{})
+			_, err := f.fs.s3Client.PutObject(f.ctx, f.fs.bucket, f.fs.path(f.name), bytes.NewBuffer([]byte{0x00}), 1, putOptions)
 			if err != nil {
 				_ = writer.Close()
 				return
 			}
 		}
 
-		_, err = f.fs.c.PutObject(f.ctx, f.fs.bucket, f.fs.path(f.name), reader, -1, minio.PutObjectOptions{})
+		_, err = f.fs.s3Client.PutObject(f.ctx, f.fs.bucket, f.fs.path(f.name), reader, -1, putOptions)
 		if err != nil {
 			_ = writer.Close()
 		}
 	}()
 
-	if presignAs := fs.presignAs; presignAs != nil {
-		u, err := fs.c.PresignedPutObject(ctx, fs.bucket, fs.path(name), 5*time.Minute)
+	if presignAs, ok := fs.presignForWrite(); ok {
+		u, err := fs.presignClient().PresignedPutObject(ctx, fs.bucket, fs.path(name), 5*time.Minute)
 		if err != nil {
 			return nil, err
 		}
@@ -110,15 +122,15 @@ func openFileForWrite(ctx context.Context, fs *fs, name string, flags int) (file
 func openFileForRead(ctx context.Context, fs *fs, name string) (filesystem.File, error) {
 	f := &file{ctx: ctx, fs: fs, name: name}
 
-	o, err := fs.c.GetObject(ctx, fs.bucket, fs.path(name), minio.GetObjectOptions{})
+	o, err := fs.s3Client.GetObject(ctx, fs.bucket, fs.path(name), minio.GetObjectOptions{})
 	if err != nil {
 		return nil, err
 	}
 
 	f.object = o
 
-	if presignAs := fs.presignAs; presignAs != nil {
-		u, err := fs.c.PresignedGetObject(ctx, fs.bucket, fs.path(name), 5*time.Minute, nil)
+	if presignAs, ok := fs.presignForRead(); ok {
+		u, err := fs.presignClient().PresignedGetObject(ctx, fs.bucket, fs.path(name), 5*time.Minute, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -177,7 +189,7 @@ func (f *file) Readdir(n int) ([]os.FileInfo, error) {
 		name += "/"
 	}
 
-	objCh := f.fs.c.ListObjects(context.Background(), f.fs.bucket, minio.ListObjectsOptions{
+	objCh := f.fs.s3Client.ListObjects(context.Background(), f.fs.bucket, minio.ListObjectsOptions{
 		Prefix: name,
 	})
 

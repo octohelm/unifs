@@ -35,7 +35,7 @@ func TestS3Fs(t *testing.T) {
 }
 
 func TestS3WithPresignAs(t *testing.T) {
-	fsys := newFakeS3FS(t, forPresign("https://x.io"))
+	fsys := newFakeS3FS(t, forPresign("https://rw:fake@x.io"))
 	err := fsys.Mkdir(context.Background(), "/x", os.ModePerm|os.ModeDir)
 	testingx.Expect(t, err, testingx.BeNil[error]())
 
@@ -46,7 +46,7 @@ func TestS3WithPresignAs(t *testing.T) {
 	testingx.Expect(t, err, testingx.BeNil[error]())
 	defer f.Close()
 
-	testingx.Expect(t, f.(courierhttp.RedirectDescriber).Location().Host, testingx.Be("x.io"))
+	testingx.Expect(t, f.(courierhttp.RedirectDescriber).Location().Host, testingx.Be("test.x.io"))
 }
 
 func forPresign(endpoint string) func(c *Config) {

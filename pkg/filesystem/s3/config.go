@@ -75,10 +75,21 @@ func (c *Config) AsFileSystem(ctx context.Context) (filesystem.FileSystem, error
 	}
 
 	f := &fs{
-		c:         client,
-		bucket:    c.Bucket(),
-		prefix:    c.Prefix(),
-		presignAs: presignAs,
+		s3Client: client,
+		bucket:   c.Bucket(),
+		prefix:   c.Prefix(),
+	}
+
+	if presignAs != nil {
+		clientForPresign, err := minio.New(presignAs.Host, o)
+		if err != nil {
+			return nil, fmt.Errorf("new s3 client failed: %w", err)
+		}
+
+		presignAs.Host = c.Bucket() + "." + presignAs.Host
+
+		f.presignAs = presignAs
+		f.s3ClientForPresign = clientForPresign
 	}
 
 	c.fs = f

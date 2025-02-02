@@ -18,10 +18,12 @@ import (
 )
 
 type fs struct {
-	c         *minio.Client
-	presignAs *url.URL
-	bucket    string
-	prefix    string
+	s3Client           *minio.Client
+	s3ClientForPresign *minio.Client
+	presignAs          *url.URL
+
+	bucket string
+	prefix string
 }
 
 func (fsys *fs) Mkdir(ctx context.Context, name string, perm os.FileMode) error {
@@ -112,7 +114,7 @@ func (fsys *fs) Rename(ctx context.Context, oldName, newName string) error {
 		return fsys.forceRemove(ctx, oldName, true)
 	}
 
-	_, err = fsys.c.CopyObject(
+	_, err = fsys.s3Client.CopyObject(
 		ctx,
 		minio.CopyDestOptions{
 			Bucket: fsys.bucket,
@@ -169,14 +171,14 @@ func (fsys *fs) RemoveAll(ctx context.Context, name string) error {
 
 func (fsys *fs) forceRemove(ctx context.Context, name string, isDir bool) error {
 	if isDir {
-		if err := fsys.c.RemoveObject(ctx, fsys.bucket, fsys.path(filepath.Join(name, dirHolder)), minio.RemoveObjectOptions{
+		if err := fsys.s3Client.RemoveObject(ctx, fsys.bucket, fsys.path(filepath.Join(name, dirHolder)), minio.RemoveObjectOptions{
 			ForceDelete: true,
 		}); err != nil {
 			return err
 		}
 	}
 
-	return fsys.c.RemoveObject(ctx, fsys.bucket, fsys.path(name), minio.RemoveObjectOptions{
+	return fsys.s3Client.RemoveObject(ctx, fsys.bucket, fsys.path(name), minio.RemoveObjectOptions{
 		ForceDelete: true,
 	})
 }
@@ -193,7 +195,7 @@ func (fsys *fs) Stat(ctx context.Context, name string) (os.FileInfo, error) {
 		return fsutil.NewDirFileInfo(name), nil
 	}
 
-	info, err := fsys.c.StatObject(ctx, fsys.bucket, fsys.path(name), minio.StatObjectOptions{})
+	info, err := fsys.s3Client.StatObject(ctx, fsys.bucket, fsys.path(name), minio.StatObjectOptions{})
 	if err != nil {
 		var errorResponse minio.ErrorResponse
 		if errors.As(err, &errorResponse) {
@@ -219,7 +221,7 @@ func (fsys *fs) Stat(ctx context.Context, name string) (os.FileInfo, error) {
 func (fsys *fs) statDirectory(ctx context.Context, name string) (os.FileInfo, error) {
 	nameClean := path.Clean(name)
 
-	objects := fsys.c.ListObjects(ctx, fsys.bucket, minio.ListObjectsOptions{
+	objects := fsys.s3Client.ListObjects(ctx, fsys.bucket, minio.ListObjectsOptions{
 		Prefix:  fsys.path(nameClean),
 		MaxKeys: 1,
 	})
@@ -233,4 +235,35 @@ func (fsys *fs) statDirectory(ctx context.Context, name string) (os.FileInfo, er
 		Path: name,
 		Err:  os.ErrNotExist,
 	}
+}
+
+func (fsys *fs) presignClient() *minio.Client {
+	if presignAs := fsys.presignAs; presignAs != nil {
+
+		if presignAs.User != nil {
+			if pwd, ok := presignAs.User.Password(); ok && pwd == "fake" {
+				return fsys.s3Client
+			}
+		}
+		return fsys.s3ClientForPresign
+	}
+
+	return fsys.s3Client
+}
+
+func (fsys *fs) presignForWrite() (*url.URL, bool) {
+	if fsys.presignAs != nil {
+		if fsys.presignAs.User != nil && fsys.presignAs.User.Username() == "rw" {
+			return fsys.presignAs, true
+		}
+	}
+
+	return nil, false
+}
+
+func (fsys *fs) presignForRead() (*url.URL, bool) {
+	if fsys.presignAs != nil {
+		return fsys.presignAs, true
+	}
+	return nil, false
 }
