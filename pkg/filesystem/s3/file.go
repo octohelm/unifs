@@ -10,14 +10,12 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/octohelm/courier/pkg/courierhttp"
 	"github.com/octohelm/unifs/pkg/filesystem"
 	"github.com/octohelm/unifs/pkg/filesystem/fsutil"
-	"golang.org/x/sync/errgroup"
 )
 
 func openDir(ctx context.Context, fs *fs, name string) (filesystem.File, error) {
@@ -62,45 +60,49 @@ func openFileForWrite(ctx context.Context, fs *fs, name string, flags int) (file
 
 	f := &file{ctx: ctx, fs: fs, name: name}
 
-	reader, writer := io.Pipe()
+	pr, pw := io.Pipe()
 
-	f.streamWriter = writer
-	f.streamWriterErrCh = make(chan error)
+	f.pw = pw
+	f.errCh = make(chan error, 1)
 
-	putOptions := minio.PutObjectOptions{}
+	putObjectOptions := minio.PutObjectOptions{}
 
 	metadata := filesystem.MetadataFromContext(ctx)
 
 	if v := metadata.Get("Content-Type"); v != "" {
-		putOptions.ContentType = v
+		putObjectOptions.ContentType = v
 	}
 
 	if v := metadata.Get("Cache-Control"); v != "" {
-		putOptions.CacheControl = v
+		putObjectOptions.CacheControl = v
 	}
 
 	go func() {
+		defer pr.Close()
+
 		var err error
+
 		defer func() {
-			f.streamWriterErrCh <- err
+			f.errCh <- err
 		}()
 
 		if flags&os.O_CREATE != 0 {
 			// when create new file
 			// to put 0x00 as placeholder
-			_, err := f.fs.s3Client.PutObject(f.ctx, f.fs.bucket, f.fs.path(f.name), bytes.NewBuffer([]byte{0x00}), 1, putOptions)
+			_, err = f.fs.s3Client.PutObject(ctx, f.fs.bucket, f.fs.path(f.name), bytes.NewBuffer([]byte{0x00}), 1, putObjectOptions)
 			if err != nil {
-				_ = writer.Close()
 				return
 			}
 		}
 
-		_, err = f.fs.s3Client.PutObject(f.ctx, f.fs.bucket, f.fs.path(f.name), reader, -1, putOptions)
-		if err != nil {
-			_ = writer.Close()
-		}
+		// https://github.com/minio/minio-go/issues?q=PartSize%20
+		putObjectOptions.PartSize = 5 * 1024 * 1024 /* MiB */
+
+		_, err = f.fs.s3Client.PutObject(ctx, f.fs.bucket, f.fs.path(f.name), pr, -1, putObjectOptions)
+		return
 	}()
 
+	// wrap as pre signed
 	if presignAs, ok := fs.presignForWrite(); ok {
 		u, err := fs.presignClient().PresignedPutObject(ctx, fs.bucket, fs.path(name), 5*time.Minute)
 		if err != nil {
@@ -163,18 +165,17 @@ func (f *preSignedFile) Location() *url.URL {
 }
 
 type file struct {
-	ctx  context.Context
-	fs   *fs
 	name string
 
-	// reader
+	ctx context.Context
+	fs  *fs
+
+	// write
+	pw    *io.PipeWriter
+	errCh chan error
+
+	// read
 	object *minio.Object
-
-	// writer
-	streamWriter      *io.PipeWriter
-	streamWriterErrCh chan error
-
-	mu sync.Mutex
 }
 
 func (f *file) Name() string { return f.name }
@@ -238,9 +239,6 @@ func (f *file) Stat() (os.FileInfo, error) {
 }
 
 func (f *file) Seek(offset int64, whence int) (int64, error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
 	return f.object.Seek(offset, whence)
 }
 
@@ -248,44 +246,27 @@ func (f *file) Read(p []byte) (int, error) {
 	if f.object == nil {
 		return -1, ErrNotSupported
 	}
-	f.mu.Lock()
-	defer f.mu.Unlock()
 	return f.object.Read(p)
 }
 
 func (f *file) Write(p []byte) (int, error) {
-	if f.streamWriter == nil {
+	if f.pw == nil {
 		return -1, ErrNotSupported
 	}
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	return f.streamWriter.Write(p)
+	return f.pw.Write(p)
 }
 
 func (f *file) Close() error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
-	eg := errgroup.Group{}
-
-	eg.Go(func() error {
-		if f.streamWriter != nil {
-			if err := f.streamWriter.Close(); err != nil {
-				return err
-			}
-			err := <-f.streamWriterErrCh
-			close(f.streamWriterErrCh)
+	if f.pw != nil {
+		if err := f.pw.Close(); err != nil {
 			return err
 		}
-		return nil
-	})
+		return <-f.errCh
+	}
 
-	eg.Go(func() error {
-		if f.object != nil {
-			return f.object.Close()
-		}
-		return nil
-	})
+	if f.object != nil {
+		return f.object.Close()
+	}
 
-	return eg.Wait()
+	return nil
 }
