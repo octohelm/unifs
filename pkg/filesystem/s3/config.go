@@ -3,11 +3,12 @@ package s3
 import (
 	"context"
 	"fmt"
-	"github.com/octohelm/unifs/pkg/filesystem"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"time"
+
+	"github.com/octohelm/unifs/pkg/filesystem"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"

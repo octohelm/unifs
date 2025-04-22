@@ -12,8 +12,7 @@ import (
 	"strings"
 
 	"github.com/minio/minio-go/v7"
-	"golang.org/x/net/webdav"
-
+	"github.com/octohelm/unifs/pkg/filesystem"
 	"github.com/octohelm/unifs/pkg/filesystem/fsutil"
 )
 
@@ -42,7 +41,7 @@ func (fsys *fs) Mkdir(ctx context.Context, name string, perm os.FileMode) error 
 	return nil
 }
 
-func (fsys *fs) OpenFile(ctx context.Context, name string, flag int, perm os.FileMode) (webdav.File, error) {
+func (fsys *fs) OpenFile(ctx context.Context, name string, flag int, perm os.FileMode) (filesystem.File, error) {
 	// Appending is not supported by S3. It's do-able though by:
 	// - Copying the existing file to a new place (for example $file.previous)
 	// - Writing a new file, streaming the content of the previous file in it
@@ -64,7 +63,11 @@ func (fsys *fs) OpenFile(ctx context.Context, name string, flag int, perm os.Fil
 		return openFileForWrite(ctx, fsys, name, flag)
 	}
 
-	return openFileForRead(ctx, fsys, name)
+	f, err := openFileForRead(ctx, fsys, name)
+	if err != nil {
+		return nil, err
+	}
+	return f, nil
 }
 
 func (fsys *fs) Rename(ctx context.Context, oldName, newName string) error {
@@ -191,13 +194,14 @@ func (fsys *fs) path(name string) (s string) {
 }
 
 func (fsys *fs) Stat(ctx context.Context, name string) (os.FileInfo, error) {
-	if name == "/" {
-		return fsutil.NewDirFileInfo(name), nil
+	if name == "/" || name == "." {
+		return fsutil.NewDirFileInfo("/"), nil
 	}
 
 	info, err := fsys.s3Client.StatObject(ctx, fsys.bucket, fsys.path(name), minio.StatObjectOptions{})
 	if err != nil {
 		var errorResponse minio.ErrorResponse
+
 		if errors.As(err, &errorResponse) {
 			if errorResponse.StatusCode == http.StatusNotFound {
 				return fsys.statDirectory(ctx, name)

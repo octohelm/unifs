@@ -16,6 +16,7 @@ import (
 	"github.com/octohelm/courier/pkg/courierhttp"
 	"github.com/octohelm/unifs/pkg/filesystem"
 	"github.com/octohelm/unifs/pkg/filesystem/fsutil"
+	"github.com/octohelm/unifs/pkg/units"
 )
 
 func openDir(ctx context.Context, fs *fs, name string) (filesystem.File, error) {
@@ -81,28 +82,29 @@ func openFileForWrite(ctx context.Context, fs *fs, name string, flags int) (file
 		defer pr.Close()
 
 		var err error
-
 		defer func() {
 			f.errCh <- err
 		}()
 
+		c := context.WithoutCancel(ctx)
+
 		if flags&os.O_CREATE != 0 {
 			// when create new file
 			// to put 0x00 as placeholder
-			_, err = f.fs.s3Client.PutObject(ctx, f.fs.bucket, f.fs.path(f.name), bytes.NewBuffer([]byte{0x00}), 1, putObjectOptions)
+			_, err = f.fs.s3Client.PutObject(c, f.fs.bucket, f.fs.path(f.name), bytes.NewBuffer([]byte{0x00}), 1, putObjectOptions)
 			if err != nil {
 				return
 			}
 		}
 
 		// https://github.com/minio/minio-go/issues?q=PartSize%20
-		putObjectOptions.PartSize = 5 * 1024 * 1024 /* MiB */
+		putObjectOptions.PartSize = uint64(5 * units.MiB)
 
-		_, err = f.fs.s3Client.PutObject(ctx, f.fs.bucket, f.fs.path(f.name), pr, -1, putObjectOptions)
+		_, err = f.fs.s3Client.PutObject(c, f.fs.bucket, f.fs.path(f.name), pr, -1, putObjectOptions)
 		return
 	}()
 
-	// wrap as pre signed
+	// wrap as pre-signed
 	if presignAs, ok := fs.presignForWrite(); ok {
 		u, err := fs.presignClient().PresignedPutObject(ctx, fs.bucket, fs.path(name), 5*time.Minute)
 		if err != nil {
@@ -123,6 +125,10 @@ func openFileForWrite(ctx context.Context, fs *fs, name string, flags int) (file
 
 func openFileForRead(ctx context.Context, fs *fs, name string) (filesystem.File, error) {
 	f := &file{ctx: ctx, fs: fs, name: name}
+
+	if _, err := fs.Stat(ctx, name); err != nil {
+		return nil, err
+	}
 
 	o, err := fs.s3Client.GetObject(ctx, fs.bucket, fs.path(name), minio.GetObjectOptions{})
 	if err != nil {

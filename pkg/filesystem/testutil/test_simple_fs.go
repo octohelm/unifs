@@ -3,11 +3,14 @@ package testutil
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
+	"math/rand/v2"
 	"os"
 	"testing"
 
 	"github.com/octohelm/unifs/pkg/filesystem"
+	"github.com/octohelm/unifs/pkg/units"
 	"github.com/octohelm/x/slices"
 	testingx "github.com/octohelm/x/testing"
 )
@@ -73,6 +76,19 @@ func TestSimpleFS(t *testing.T, fs filesystem.FileSystem) {
 		f, err := fs.Stat(context.Background(), "/x")
 		testingx.Expect(t, err, testingx.Be[error](nil))
 		testingx.Expect(t, f.IsDir(), testingx.Be(true))
+
+		for i := range 4 {
+			size := (i + 1) * (i + 1)
+
+			t.Run(fmt.Sprintf("write large files %dMiB", size), func(t *testing.T) {
+				f, err := fs.OpenFile(context.Background(), fmt.Sprintf("/x/large-%dMiB.bin", i), os.O_WRONLY|os.O_CREATE, os.ModePerm)
+				testingx.Expect(t, err, testingx.Be[error](nil))
+				_, err = io.CopyN(f, CharFill('1'), int64(units.BinarySize(size)*units.MiB+units.BinarySize(rand.IntN(1024))))
+				testingx.Expect(t, err, testingx.Be[error](nil))
+				err = f.Close()
+				testingx.Expect(t, err, testingx.Be[error](nil))
+			})
+		}
 	})
 
 	t.Run("stat file", func(t *testing.T) {
@@ -136,4 +152,13 @@ func TestSimpleFS(t *testing.T, fs filesystem.FileSystem) {
 		testingx.Expect(t, err, testingx.Be[error](nil))
 		testingx.Expect(t, len(list), testingx.Be(0))
 	})
+}
+
+type CharFill byte
+
+func (b CharFill) Read(p []byte) (int, error) {
+	for i := range p {
+		p[i] = byte(b)
+	}
+	return len(p), nil
 }

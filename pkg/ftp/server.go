@@ -77,7 +77,7 @@ type driver struct {
 
 	fs filesystem.FileSystem
 
-	nbClients       int64
+	nbClients       atomic.Int64
 	zeroClientEvent chan error
 }
 
@@ -104,7 +104,7 @@ type ClientDriver struct {
 var ErrTimeout = errors.New("timeout")
 
 func (s *driver) ClientConnected(cc ftpserver.ClientContext) (string, error) {
-	atomic.AddInt64(&s.nbClients, 1)
+	s.nbClients.Add(1)
 
 	s.logger.WithValues(
 		"client.id", cc.ID(),
@@ -117,7 +117,7 @@ func (s *driver) ClientConnected(cc ftpserver.ClientContext) (string, error) {
 
 // ClientDisconnected is called when the user disconnects, even if he never authenticated
 func (s *driver) ClientDisconnected(cc ftpserver.ClientContext) {
-	atomic.AddInt64(&s.nbClients, -1)
+	s.nbClients.Add(-1)
 
 	s.logger.WithValues(
 		"client.id", cc.ID(),
@@ -148,7 +148,7 @@ func (s *driver) Stop() {
 }
 
 func (s *driver) considerEnd() {
-	if s.nbClients == 0 && s.zeroClientEvent != nil {
+	if s.nbClients.Load() == 0 && s.zeroClientEvent != nil {
 		s.zeroClientEvent <- nil
 		close(s.zeroClientEvent)
 	}
