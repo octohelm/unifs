@@ -73,9 +73,7 @@ func (c *Config) Conn(ctx context.Context, args ...any) (Conn, error) {
 		}
 
 		if c.Endpoint.Scheme == "ftps" {
-			p.TLSConfig = &tls.Config{
-				MinVersion: tls.VersionTLS10,
-			}
+			p.TLSConfig = &tls.Config{}
 
 			if t := c.Endpoint.Extra.Get("insecureSkipVerify"); t != "" {
 				d, err := strconv.ParseBool(t)
