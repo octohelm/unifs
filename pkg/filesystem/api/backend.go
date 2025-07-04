@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"strings"
 
 	"github.com/octohelm/unifs/pkg/filesystem"
 	"github.com/octohelm/unifs/pkg/filesystem/ftp"
@@ -84,6 +85,10 @@ func (m *FileSystemBackend) Init(ctx context.Context) error {
 		m.fsi = webdav.NewFS(c)
 		return nil
 	case "file":
+		if endpoint.Hostname == "." && strings.HasPrefix(endpoint.Path, "/") {
+			m.fsi = local.NewFS(endpoint.Path[1:])
+			return nil
+		}
 		m.fsi = local.NewFS(endpoint.Path)
 		return nil
 	default:
