@@ -31,7 +31,7 @@ func (x TLS) Certificate() (tls.Certificate, error) {
 
 type Config struct {
 	Endpoint strfmt.Endpoint `flag:",upstream"`
-	TLS      TLS             `json:"tls,omitempty"`
+	TLS      TLS             `json:"tls,omitzero"`
 
 	p  *Pool
 	mu sync.Mutex

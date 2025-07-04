@@ -36,8 +36,8 @@ var _ configuration.Runner = &Mounter{}
 type Mounter struct {
 	MountPoint string          `arg:""`
 	Backend    strfmt.Endpoint `flag:"backend"`
-	Foreground bool            `flag:"foreground,omitempty"`
-	Delegate   bool            `flag:"delegate,omitempty"`
+	Foreground bool            `flag:"foreground,omitzero"`
+	Delegate   bool            `flag:"delegate,omitzero"`
 }
 
 func (m *Mounter) Run(ctx context.Context) error {

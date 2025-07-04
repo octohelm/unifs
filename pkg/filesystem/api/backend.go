@@ -15,17 +15,21 @@ import (
 
 type FileSystemBackend struct {
 	// 地址
-	Backend strfmt.Endpoint `flag:"backend"`
+	Backend strfmt.Endpoint `flag:"backend,omitzero"`
 	// Overwrite username when not empty
-	UsernameOverwrite string `flag:",omitempty"`
+	UsernameOverwrite string `flag:",omitzero"`
 	// Overwrite password when not empty
-	PasswordOverwrite string `flag:",omitempty,secret"`
+	PasswordOverwrite string `flag:",omitzero,secret"`
 	// Overwrite path when not empty
-	PathOverwrite string `flag:",omitempty"`
+	PathOverwrite string `flag:",omitzero"`
 	// Overwrite extra when not empty
-	ExtraOverwrite string `flag:",omitempty"`
+	ExtraOverwrite string `flag:",omitzero"`
 
 	fsi filesystem.FileSystem `flag:"-"`
+}
+
+func (m *FileSystemBackend) Disabled(ctx context.Context) bool {
+	return m.Backend.IsZero()
 }
 
 func (m *FileSystemBackend) FileSystem() filesystem.FileSystem {
@@ -33,6 +37,10 @@ func (m *FileSystemBackend) FileSystem() filesystem.FileSystem {
 }
 
 func (m *FileSystemBackend) Init(ctx context.Context) error {
+	if m.Disabled(ctx) {
+		return nil
+	}
+
 	endpoint := m.Backend
 
 	if path := m.PathOverwrite; path != "" {

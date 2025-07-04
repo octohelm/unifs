@@ -29,7 +29,7 @@ type WebDAV struct {
 }
 
 type WebDAVServer struct {
-	Addr string `flag:"addr,omitempty"`
+	Addr string `flag:"addr,omitzero"`
 
 	api.FileSystemBackend
 

@@ -21,10 +21,10 @@ import (
 var _ configuration.Server = &Server{}
 
 type Server struct {
-	Addr        string `flag:"addr,omitempty"`
-	PublicHost  string `flag:"public-host,omitempty"`
-	DisableMLST bool   `flag:"disable-mlst,omitempty"`
-	DisableMLSD bool   `flag:"disable-mlsd,omitempty"`
+	Addr        string `flag:"addr,omitzero"`
+	PublicHost  string `flag:"public-host,omitzero"`
+	DisableMLST bool   `flag:"disable-mlst,omitzero"`
+	DisableMLSD bool   `flag:"disable-mlsd,omitzero"`
 
 	ftp *ftpserver.FtpServer
 }

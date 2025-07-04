@@ -17,8 +17,8 @@ import (
 type MultiStatus struct {
 	XMLName             xml.Name    `xml:"DAV: multistatus"`
 	Responses           []*Response `xml:"response"`
-	ResponseDescription string      `xml:"responsedescription,omitempty"`
-	SyncToken           string      `xml:"sync-token,omitempty"`
+	ResponseDescription string      `xml:"responsedescription,omitzero"`
+	SyncToken           string      `xml:"sync-token,omitzero"`
 }
 
 func NewMultiStatus(resps ...*Response) *MultiStatus {
@@ -29,11 +29,11 @@ func NewMultiStatus(resps ...*Response) *MultiStatus {
 type Response struct {
 	XMLName             xml.Name   `xml:"DAV: response"`
 	Hrefs               []Href     `xml:"href"`
-	PropStats           []PropStat `xml:"propstat,omitempty"`
-	ResponseDescription string     `xml:"responsedescription,omitempty"`
-	Status              *Status    `xml:"status,omitempty"`
-	Error               *Error     `xml:"error,omitempty"`
-	Location            *Location  `xml:"location,omitempty"`
+	PropStats           []PropStat `xml:"propstat,omitzero"`
+	ResponseDescription string     `xml:"responsedescription,omitzero"`
+	Status              *Status    `xml:"status,omitzero"`
+	Error               *Error     `xml:"error,omitzero"`
+	Location            *Location  `xml:"location,omitzero"`
 	Prefix              string     `xml:"-"`
 }
 

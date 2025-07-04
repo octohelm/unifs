@@ -32,8 +32,8 @@ type PropStat struct {
 	XMLName             xml.Name `xml:"DAV: propstat"`
 	Prop                Prop     `xml:"prop"`
 	Status              Status   `xml:"status"`
-	ResponseDescription string   `xml:"responsedescription,omitempty"`
-	Error               *Error   `xml:"error,omitempty"`
+	ResponseDescription string   `xml:"responsedescription,omitzero"`
+	Error               *Error   `xml:"error,omitzero"`
 }
 
 // https://tools.ietf.org/html/rfc4918#section-14.18
@@ -81,10 +81,10 @@ func (p *Prop) Decode(v interface{}) error {
 // https://tools.ietf.org/html/rfc4918#section-14.20
 type PropFind struct {
 	XMLName  xml.Name  `xml:"DAV: propfind"`
-	Prop     *Prop     `xml:"prop,omitempty"`
-	AllProp  *struct{} `xml:"allprop,omitempty"`
-	Include  *Include  `xml:"include,omitempty"`
-	PropName *struct{} `xml:"propname,omitempty"`
+	Prop     *Prop     `xml:"prop,omitzero"`
+	AllProp  *struct{} `xml:"allprop,omitzero"`
+	Include  *Include  `xml:"include,omitzero"`
+	PropName *struct{} `xml:"propname,omitzero"`
 }
 
 func xmlNamesToRaw(names []xml.Name) []RawXMLValue {
@@ -213,8 +213,8 @@ type DisplayName struct {
 // https://tools.ietf.org/html/rfc5397#section-3
 type CurrentUserPrincipal struct {
 	XMLName         xml.Name  `xml:"DAV: current-user-principal"`
-	Href            Href      `xml:"href,omitempty"`
-	Unauthenticated *struct{} `xml:"unauthenticated,omitempty"`
+	Href            Href      `xml:"href,omitzero"`
+	Unauthenticated *struct{} `xml:"unauthenticated,omitzero"`
 }
 
 // https://tools.ietf.org/html/rfc4918#section-14.19
@@ -240,7 +240,7 @@ type Set struct {
 type SyncCollectionQuery struct {
 	XMLName   xml.Name `xml:"DAV: sync-collection"`
 	SyncToken string   `xml:"sync-token"`
-	Limit     *Limit   `xml:"limit,omitempty"`
+	Limit     *Limit   `xml:"limit,omitzero"`
 	SyncLevel string   `xml:"sync-level"`
 	Prop      *Prop    `xml:"prop"`
 }
