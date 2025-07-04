@@ -48,7 +48,7 @@ func (fsys *fs) OpenFile(ctx context.Context, name string, flag int, perm os.Fil
 	// - Writing the data you want to append
 	// Quite network intensive, if used in abondance this would lead to terrible performances.
 	if flag&os.O_APPEND != 0 {
-		return nil, ErrNotSupported
+		return nil, os.ErrPermission
 	}
 
 	if flag&os.O_CREATE != 0 {
@@ -63,7 +63,7 @@ func (fsys *fs) OpenFile(ctx context.Context, name string, flag int, perm os.Fil
 		return openFileForWrite(ctx, fsys, name, flag)
 	}
 
-	f, err := openFileForRead(ctx, fsys, name)
+	f, err := openFileForRead(ctx, fsys, name, flag)
 	if err != nil {
 		return nil, err
 	}

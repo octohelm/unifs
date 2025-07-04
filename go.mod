@@ -20,11 +20,11 @@ require (
 require (
 	github.com/container-storage-interface/spec v1.11.0
 	github.com/fclairamb/ftpserverlib v0.26.0
-	github.com/hanwen/go-fuse/v2 v2.7.2
+	github.com/hanwen/go-fuse/v2 v2.8.0
 	github.com/jlaffaye/ftp v0.2.0
-	github.com/johannesboyne/gofakes3 v0.0.0-20250402064820-d479899d8cbe
+	github.com/johannesboyne/gofakes3 v0.0.0-20250603205740-ed9094be7668
 	github.com/kubernetes-csi/csi-test/v5 v5.3.1
-	github.com/minio/minio-go/v7 v7.0.91
+	github.com/minio/minio-go/v7 v7.0.94
 	github.com/mitchellh/go-ps v1.0.0
 	github.com/sevlyar/go-daemon v0.1.6
 	github.com/spf13/afero v1.14.0
@@ -33,7 +33,7 @@ require (
 	google.golang.org/grpc v1.73.0
 	google.golang.org/protobuf v1.36.6
 	k8s.io/apimachinery v0.33.2
-	k8s.io/utils v0.0.0-20250502105355-0f33e8f1c979
+	k8s.io/utils v0.0.0-20250604170112-4c0f3b243397
 )
 
 require (
@@ -73,6 +73,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.23.3 // indirect
 	github.com/onsi/gomega v1.37.0 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
+	github.com/philhofer/fwd v1.1.3-0.20240916144458-20a13a1f6b7c // indirect
 	github.com/prometheus/client_golang v1.22.0 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.65.0 // indirect
@@ -81,6 +82,7 @@ require (
 	github.com/ryszard/goskiplist v0.0.0-20150312221310-2dfbae5fcf46 // indirect
 	github.com/spf13/cobra v1.9.1 // indirect
 	github.com/spf13/pflag v1.0.6 // indirect
+	github.com/tinylib/msgp v1.3.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/otel v1.37.0 // indirect

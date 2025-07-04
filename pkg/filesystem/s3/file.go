@@ -10,6 +10,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/minio/minio-go/v7"
@@ -59,50 +60,13 @@ func openFileForWrite(ctx context.Context, fs *fs, name string, flags int) (file
 		}
 	}
 
-	f := &file{ctx: ctx, fs: fs, name: name}
-
-	pr, pw := io.Pipe()
-
-	f.pw = pw
-	f.errCh = make(chan error, 1)
-
-	putObjectOptions := minio.PutObjectOptions{}
-
-	metadata := filesystem.MetadataFromContext(ctx)
-
-	if v := metadata.Get("Content-Type"); v != "" {
-		putObjectOptions.ContentType = v
+	f := &file{
+		name:      name,
+		flags:     flags,
+		ctx:       ctx,
+		fs:        fs,
+		writeable: true,
 	}
-
-	if v := metadata.Get("Cache-Control"); v != "" {
-		putObjectOptions.CacheControl = v
-	}
-
-	go func() {
-		defer pr.Close()
-
-		var err error
-		defer func() {
-			f.errCh <- err
-		}()
-
-		c := context.WithoutCancel(ctx)
-
-		if flags&os.O_CREATE != 0 {
-			// when create new file
-			// to put 0x00 as placeholder
-			_, err = f.fs.s3Client.PutObject(c, f.fs.bucket, f.fs.path(f.name), bytes.NewBuffer([]byte{0x00}), 1, putObjectOptions)
-			if err != nil {
-				return
-			}
-		}
-
-		// https://github.com/minio/minio-go/issues?q=PartSize%20
-		putObjectOptions.PartSize = uint64(5 * units.MiB)
-
-		_, err = f.fs.s3Client.PutObject(c, f.fs.bucket, f.fs.path(f.name), pr, -1, putObjectOptions)
-		return
-	}()
 
 	// wrap as pre-signed
 	if presignAs, ok := fs.presignForWrite(); ok {
@@ -123,8 +87,8 @@ func openFileForWrite(ctx context.Context, fs *fs, name string, flags int) (file
 	return f, nil
 }
 
-func openFileForRead(ctx context.Context, fs *fs, name string) (filesystem.File, error) {
-	f := &file{ctx: ctx, fs: fs, name: name}
+func openFileForRead(ctx context.Context, fs *fs, name string, flags int) (filesystem.File, error) {
+	f := &file{name: name, flags: flags, ctx: ctx, fs: fs}
 
 	if _, err := fs.Stat(ctx, name); err != nil {
 		return nil, err
@@ -171,14 +135,17 @@ func (f *preSignedFile) Location() *url.URL {
 }
 
 type file struct {
-	name string
+	name  string
+	flags int
 
 	ctx context.Context
 	fs  *fs
 
 	// write
-	pw    *io.PipeWriter
-	errCh chan error
+	writeable     bool
+	pw            *io.PipeWriter
+	errCh         chan error
+	writeInitOnce sync.Once
 
 	// read
 	object *minio.Object
@@ -250,15 +217,60 @@ func (f *file) Seek(offset int64, whence int) (int64, error) {
 
 func (f *file) Read(p []byte) (int, error) {
 	if f.object == nil {
-		return -1, ErrNotSupported
+		return -1, os.ErrNotExist
 	}
+
 	return f.object.Read(p)
 }
 
 func (f *file) Write(p []byte) (int, error) {
-	if f.pw == nil {
-		return -1, ErrNotSupported
+	if !f.writeable {
+		return -1, os.ErrPermission
 	}
+
+	f.writeInitOnce.Do(func() {
+		pr, pw := io.Pipe()
+
+		f.errCh = make(chan error, 1)
+		f.pw = pw
+
+		putObjectOptions := minio.PutObjectOptions{}
+
+		metadata := filesystem.MetadataFromContext(f.ctx)
+		if v := metadata.Get("Content-Type"); v != "" {
+			putObjectOptions.ContentType = v
+		}
+		if v := metadata.Get("Cache-Control"); v != "" {
+			putObjectOptions.CacheControl = v
+		}
+
+		go func() {
+			defer pr.Close()
+
+			var err error
+			defer func() {
+				f.errCh <- err
+			}()
+
+			c := context.WithoutCancel(f.ctx)
+
+			if f.flags&os.O_CREATE != 0 {
+				// when create new file
+				// to put 0x00 as placeholder
+				_, err = f.fs.s3Client.PutObject(c, f.fs.bucket, f.fs.path(f.name), bytes.NewBuffer([]byte{0x00}), 1, putObjectOptions)
+				if err != nil {
+					return
+				}
+			}
+
+			// https://github.com/minio/minio-go/issues?q=PartSize%20
+			putObjectOptions.PartSize = uint64(5 * units.MiB)
+
+			_, err = f.fs.s3Client.PutObject(c, f.fs.bucket, f.fs.path(f.name), pr, -1, putObjectOptions)
+			return
+		}()
+	})
+
 	return f.pw.Write(p)
 }
 
