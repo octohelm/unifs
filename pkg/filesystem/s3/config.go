@@ -3,15 +3,16 @@ package s3
 import (
 	"context"
 	"fmt"
+	"github.com/innoai-tech/infra/pkg/http/middleware"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"time"
 
-	"github.com/octohelm/unifs/pkg/filesystem"
-
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
+	courierhttpclient "github.com/octohelm/courier/pkg/courierhttp/client"
+	"github.com/octohelm/unifs/pkg/filesystem"
 	"github.com/octohelm/unifs/pkg/strfmt"
 )
 
@@ -56,9 +57,8 @@ func (c *Config) AsFileSystem(ctx context.Context) (filesystem.FileSystem, error
 
 	if c.Endpoint.Extra.Get("skipBucketCheck") == "true" {
 		o.Transport = &fakeBucket{
-			name:             c.Bucket(),
-			prefix:           c.Prefix(),
-			nextRoundTripper: &http.Transport{},
+			name:   c.Bucket(),
+			prefix: c.Prefix(),
 		}
 	}
 
@@ -111,9 +111,8 @@ func (c *Config) Prefix() string {
 }
 
 type fakeBucket struct {
-	nextRoundTripper http.RoundTripper
-	name             string
-	prefix           string
+	name   string
+	prefix string
 }
 
 func (rt *fakeBucket) RoundTrip(req *http.Request) (*http.Response, error) {
@@ -138,7 +137,9 @@ func (rt *fakeBucket) RoundTrip(req *http.Request) (*http.Response, error) {
 		return resp.Result(), nil
 	}
 
-	resp, err := rt.nextRoundTripper.RoundTrip(req)
+	cc := courierhttpclient.GetReasonableClientContext(req.Context(), middleware.NewLogRoundTripper())
+
+	resp, err := cc.Transport.RoundTrip(req)
 	if err != nil {
 		return resp, nil
 	}
@@ -149,17 +150,3 @@ func (rt *fakeBucket) RoundTrip(req *http.Request) (*http.Response, error) {
 const (
 	rfc822TimeFormat = "Mon, 2 Jan 2006 15:04:05 GMT"
 )
-
-type logRoundTripper struct {
-	nextRoundTripper http.RoundTripper
-}
-
-func (rt *logRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	resp, err := rt.nextRoundTripper.RoundTrip(req)
-
-	if err == nil {
-		fmt.Println(req.Method, req.URL.String(), resp.StatusCode)
-	}
-
-	return resp, err
-}
