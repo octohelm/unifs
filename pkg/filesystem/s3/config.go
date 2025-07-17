@@ -116,7 +116,7 @@ type fakeBucket struct {
 }
 
 func (rt *fakeBucket) RoundTrip(req *http.Request) (*http.Response, error) {
-	if req.Method == http.MethodGet && req.URL.Path == "/"+rt.name+"/" {
+	if (req.Method == http.MethodGet || req.Method == http.MethodHead) && req.URL.Path == "/"+rt.name+"/" {
 		r := httptest.NewRecorder()
 		r.WriteHeader(http.StatusOK)
 		_, _ = r.WriteString(`<?xml version="1.0" encoding="UTF-8"?>
@@ -143,6 +143,14 @@ func (rt *fakeBucket) RoundTrip(req *http.Request) (*http.Response, error) {
 	if err != nil {
 		return resp, nil
 	}
+
+	if req.Method == http.MethodHead {
+		if resp.StatusCode > http.StatusOK && resp.StatusCode < http.StatusMultipleChoices {
+			// force set 200
+			resp.StatusCode = http.StatusOK
+		}
+	}
+
 	resp.Header.Set("Last-Modified", time.Now().Format(rfc822TimeFormat))
 	return resp, nil
 }
