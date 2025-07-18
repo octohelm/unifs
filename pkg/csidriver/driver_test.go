@@ -2,12 +2,11 @@ package csidriver
 
 import (
 	"context"
-	"path/filepath"
+	"path"
 	"testing"
 
 	"github.com/go-courier/logr"
 	"github.com/go-courier/logr/slog"
-
 	"github.com/kubernetes-csi/csi-test/v5/pkg/sanity"
 )
 
@@ -18,8 +17,8 @@ func TestDriver(t *testing.T) {
 
 	sanityCfg := sanity.NewTestConfig()
 	sanityCfg.Address = driver.Endpoint
-	sanityCfg.TargetPath = filepath.Join(t.TempDir(), "target")
-	sanityCfg.StagingPath = filepath.Join(t.TempDir(), "staging")
+	sanityCfg.TargetPath = path.Join(t.TempDir(), "target")
+	sanityCfg.StagingPath = path.Join(t.TempDir(), "staging")
 
 	sanityCfg.SecretsFile = "testdata/secrets.yaml"
 
@@ -29,7 +28,7 @@ func TestDriver(t *testing.T) {
 func newDriver(t *testing.T) *Driver {
 	ctx := logr.WithLogger(context.Background(), slog.Logger(slog.Default()))
 
-	socket := filepath.Join(t.TempDir(), "csi-driver.sock")
+	socket := path.Join(t.TempDir(), "csi-driver.sock")
 
 	driver := &Driver{}
 	driver.Endpoint = "unix://" + socket

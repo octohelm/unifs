@@ -8,7 +8,6 @@ import (
 	"net/url"
 	"os"
 	"path"
-	"path/filepath"
 	"strings"
 
 	"github.com/minio/minio-go/v7"
@@ -174,7 +173,7 @@ func (fsys *fs) RemoveAll(ctx context.Context, name string) error {
 
 func (fsys *fs) forceRemove(ctx context.Context, name string, isDir bool) error {
 	if isDir {
-		if err := fsys.s3Client.RemoveObject(ctx, fsys.bucket, fsys.path(filepath.Join(name, dirHolder)), minio.RemoveObjectOptions{
+		if err := fsys.s3Client.RemoveObject(ctx, fsys.bucket, fsys.path(path.Join(name, dirHolder)), minio.RemoveObjectOptions{
 			ForceDelete: true,
 		}); err != nil {
 			return err
@@ -190,7 +189,7 @@ func (fsys *fs) path(name string) (s string) {
 	if fsys.prefix == "" || fsys.prefix == "/" {
 		return strings.TrimPrefix(name, "/")
 	}
-	return strings.TrimPrefix(filepath.Join(fsys.prefix, name), "/")
+	return strings.TrimPrefix(path.Join(fsys.prefix, name), "/")
 }
 
 func (fsys *fs) Stat(ctx context.Context, name string) (os.FileInfo, error) {

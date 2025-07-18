@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"path/filepath"
+	"path"
 	"strings"
 	"time"
 
@@ -38,7 +38,7 @@ type Response struct {
 }
 
 func (resp *Response) FileInfo() (filesystem.FileInfo, error) {
-	path, err := resp.Path()
+	pathname, err := resp.Path()
 	if err != nil {
 		return nil, err
 	}
@@ -49,7 +49,7 @@ func (resp *Response) FileInfo() (filesystem.FileInfo, error) {
 	}
 
 	if resType.Is(CollectionName) {
-		return fsutil.NewDirFileInfo(filepath.Base(path)), nil
+		return fsutil.NewDirFileInfo(path.Base(pathname)), nil
 	}
 
 	var getLen GetContentLength
@@ -62,7 +62,7 @@ func (resp *Response) FileInfo() (filesystem.FileInfo, error) {
 		return nil, err
 	}
 
-	return fsutil.NewFileInfo(filepath.Base(path), getLen.Length, time.Time(getLastModified.LastModified)), nil
+	return fsutil.NewFileInfo(path.Base(pathname), getLen.Length, time.Time(getLastModified.LastModified)), nil
 }
 
 func NewOKResponse(path string) *Response {

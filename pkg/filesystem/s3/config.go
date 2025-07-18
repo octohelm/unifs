@@ -3,11 +3,12 @@ package s3
 import (
 	"context"
 	"fmt"
-	"github.com/innoai-tech/infra/pkg/http/middleware"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"time"
+
+	"github.com/innoai-tech/infra/pkg/http/middleware"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"

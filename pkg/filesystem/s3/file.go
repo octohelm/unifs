@@ -8,7 +8,6 @@ import (
 	"net/url"
 	"os"
 	"path"
-	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -26,7 +25,7 @@ func openDir(ctx context.Context, fs *fs, name string) (filesystem.File, error) 
 	info, err := fs.Stat(ctx, name)
 	if err != nil {
 		if os.IsNotExist(err) {
-			if parent := filepath.Dir(strings.TrimRight(name, "/")); parent != "/" {
+			if parent := path.Dir(strings.TrimRight(name, "/")); parent != "/" {
 				if _, err := fs.Stat(ctx, parent); err != nil {
 					return nil, err
 				}
@@ -54,7 +53,7 @@ func openDir(ctx context.Context, fs *fs, name string) (filesystem.File, error) 
 const dirHolder = ".fs_dir"
 
 func openFileForWrite(ctx context.Context, fs *fs, name string, flags int) (filesystem.File, error) {
-	if parent := filepath.Dir(strings.TrimRight(name, "/")); parent != "/" {
+	if parent := path.Dir(strings.TrimRight(name, "/")); parent != "/" {
 		if _, err := fs.Stat(ctx, parent); err != nil {
 			return nil, err
 		}

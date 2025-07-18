@@ -5,7 +5,7 @@ import (
 	"context"
 	"io"
 	"os"
-	"path/filepath"
+	"path"
 
 	"github.com/octohelm/unifs/pkg/filesystem"
 )
@@ -45,7 +45,7 @@ func (i *tarImporter) ImportFrom(ctx context.Context, r io.Reader) error {
 
 	fullname := func(name string) string {
 		if base != "" {
-			return filepath.Join(base, name)
+			return path.Join(base, name)
 		}
 		return name
 	}
@@ -72,7 +72,7 @@ func (i *tarImporter) ImportFrom(ctx context.Context, r io.Reader) error {
 }
 
 func (i *tarImporter) writeFile(ctx context.Context, filename string, r io.Reader, h *tar.Header) error {
-	dir := filepath.Dir(filename)
+	dir := path.Dir(filename)
 	if dir != "" && dir != "." {
 		if err := filesystem.MkdirAll(ctx, i.fsys, dir); err != nil {
 			return err

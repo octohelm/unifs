@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -58,7 +59,7 @@ func (f *subFS) fullName(op, name string) (string, error) {
 	if !fs.ValidPath(name) {
 		return "", &fs.PathError{Op: op, Path: name, Err: errors.New("invalid name")}
 	}
-	return filepath.Join(f.dir, name), nil
+	return filepath.ToSlash(path.Join(f.dir, name)), nil
 }
 
 func (f *subFS) Mkdir(ctx context.Context, name string, perm os.FileMode) error {

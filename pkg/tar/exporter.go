@@ -3,12 +3,11 @@ package tar
 import (
 	"archive/tar"
 	"context"
+	"cuelang.org/go/pkg/path"
+	"github.com/octohelm/unifs/pkg/filesystem"
 	"io"
 	"io/fs"
 	"os"
-	"path/filepath"
-
-	"github.com/octohelm/unifs/pkg/filesystem"
 )
 
 func WithBase(base string) ExportOption {
@@ -51,7 +50,7 @@ func (t *tarExporter) ExportAsTar(ctx context.Context, w io.Writer) error {
 		base = "."
 	}
 
-	return filesystem.WalkDir(ctx, t.fsys, base, func(path string, d fs.DirEntry, err error) error {
+	return filesystem.WalkDir(ctx, t.fsys, base, func(pathname string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil
 		}
@@ -60,7 +59,7 @@ func (t *tarExporter) ExportAsTar(ctx context.Context, w io.Writer) error {
 			return nil
 		}
 
-		rel, err := filepath.Rel(base, path)
+		rel, err := path.Rel(base, pathname, path.Unix)
 		if err != nil {
 			return err
 		}
@@ -70,7 +69,7 @@ func (t *tarExporter) ExportAsTar(ctx context.Context, w io.Writer) error {
 			return err
 		}
 
-		f, err := t.fsys.OpenFile(ctx, path, os.O_RDONLY, os.ModePerm)
+		f, err := t.fsys.OpenFile(ctx, pathname, os.O_RDONLY, os.ModePerm)
 		if err != nil {
 			return err
 		}

@@ -8,7 +8,7 @@ import (
 	"net/textproto"
 	"net/url"
 	"os"
-	"path/filepath"
+	"path"
 	"time"
 
 	"github.com/jlaffaye/ftp"
@@ -104,19 +104,19 @@ func (c *conn) Close() error {
 	return c.conn.Quit()
 }
 
-func (c *conn) MakeDir(path string) error {
-	return c.conn.MakeDir(path)
+func (c *conn) MakeDir(pathname string) error {
+	return c.conn.MakeDir(pathname)
 }
 
-func (c *conn) GetEntry(path string) (*ftp.Entry, error) {
-	e, err := c.conn.GetEntry(path)
+func (c *conn) GetEntry(pathname string) (*ftp.Entry, error) {
+	e, err := c.conn.GetEntry(pathname)
 	if err != nil {
 		// to handle ftp MLST not support
 		terr := &textproto.Error{}
 		if errors.As(err, &terr) {
 			if terr.Code == ftp.StatusNotImplemented {
-				if path == "" || path == "." || path == "/" {
-					if _, err := c.List(path); err != nil {
+				if pathname == "" || pathname == "." || pathname == "/" {
+					if _, err := c.List(pathname); err != nil {
 						return nil, err
 					}
 					return &ftp.Entry{
@@ -124,8 +124,8 @@ func (c *conn) GetEntry(path string) (*ftp.Entry, error) {
 					}, nil
 				}
 
-				base := filepath.Base(path)
-				list, err := c.List(filepath.Dir(path))
+				dir, base := path.Split(pathname)
+				list, err := c.List(path.Clean(dir))
 				if err != nil {
 					return nil, err
 				}

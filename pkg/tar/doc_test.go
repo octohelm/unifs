@@ -3,7 +3,7 @@ package tar
 import (
 	"context"
 	"os"
-	"path/filepath"
+	"path"
 	"testing"
 
 	"github.com/octohelm/unifs/pkg/filesystem/local"
@@ -20,7 +20,7 @@ func TestWrite(t *testing.T) {
 	fs := local.NewFS(".")
 
 	t.Run("could write as tar", func(t *testing.T) {
-		tarFile := filepath.Join(tmpDir, "x.tar")
+		tarFile := path.Join(tmpDir, "x.tar")
 
 		f, err := os.OpenFile(tarFile, os.O_RDWR|os.O_TRUNC|os.O_CREATE, os.ModePerm)
 		testingx.Expect(t, err, testingx.BeNil[error]())

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http/httptest"
 	"os"
-	"path/filepath"
+	"path"
 	"testing"
 	"time"
 
@@ -71,7 +71,7 @@ func newFakeS3FS(t *testing.T, opts ...func(c *Config)) filesystem.FileSystem {
 		t.Fatal(err)
 	}
 
-	endpoint.Path = filepath.Clean(fmt.Sprintf("%s/_tmp_%d", endpoint.Path, time.Now().UnixNano()))
+	endpoint.Path = path.Clean(fmt.Sprintf("%s/_tmp_%d", endpoint.Path, time.Now().UnixNano()))
 
 	conf := &Config{
 		Endpoint: *endpoint,

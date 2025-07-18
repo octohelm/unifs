@@ -2,7 +2,8 @@ package fuse
 
 import (
 	"os"
-	"path/filepath"
+	"path"
+	"slices"
 	"syscall"
 	"time"
 
@@ -27,9 +28,9 @@ type root struct {
 
 func (r *root) path(base *fs.Inode, names ...string) string {
 	if len(names) > 0 {
-		return filepath.Join(append([]string{r.base, base.Path(base.Root())}, names...)...)
+		return path.Join(slices.Concat([]string{r.base, base.Path(base.Root())}, names)...)
 	}
-	return filepath.Join(r.base, base.Path(base.Root()))
+	return path.Join(r.base, base.Path(base.Root()))
 }
 
 func (r *root) newNode(parent *fs.Inode, fi os.FileInfo) fs.InodeEmbedder {

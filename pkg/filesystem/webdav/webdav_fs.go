@@ -5,13 +5,11 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"path/filepath"
 	"strings"
-
-	"golang.org/x/net/webdav"
 
 	"github.com/octohelm/unifs/pkg/filesystem"
 	"github.com/octohelm/unifs/pkg/filesystem/webdav/client"
+	"golang.org/x/net/webdav"
 )
 
 func NewFS(c client.Client) filesystem.FileSystem {
@@ -43,7 +41,7 @@ func (fs *fs) Mkdir(ctx context.Context, name string, perm os.FileMode) error {
 		}
 	}
 
-	f, err := fs.OpenFile(ctx, fmt.Sprintf("%s/", path.Clean(name)), os.O_CREATE, perm)
+	f, err := fs.OpenFile(ctx, path.Clean(name)+"/", os.O_CREATE, perm)
 	if err != nil {
 		return err
 	}
@@ -111,7 +109,7 @@ func (fs *fs) openDir(ctx context.Context, name string) (filesystem.File, error)
 	fi, err := fs.Stat(ctx, name)
 	if err != nil {
 		if os.IsNotExist(err) {
-			if parent := filepath.Dir(strings.TrimRight(name, "/")); parent != "/" {
+			if parent := path.Dir(strings.TrimRight(name, "/")); parent != "/" {
 				if _, err := fs.Stat(ctx, parent); err != nil {
 					return nil, err
 				}
@@ -140,7 +138,7 @@ func (fs *fs) openDir(ctx context.Context, name string) (filesystem.File, error)
 func (fs *fs) openFile(ctx context.Context, name string, flag int) (filesystem.File, error) {
 	// check parent path when create
 	if flag&os.O_CREATE != 0 {
-		if parent := filepath.Dir(strings.TrimRight(name, "/")); parent != "/" {
+		if parent := path.Dir(strings.TrimRight(name, "/")); parent != "/" {
 			if _, err := fs.Stat(ctx, parent); err != nil {
 				return nil, err
 			}

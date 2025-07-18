@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
+	"path"
 	"testing"
 	"time"
 
@@ -70,7 +70,7 @@ const bufSize = 1024 * 1024 // 1 MiB
 func (b *Benchmark) testBigFileWrite(ctx context.Context, fsi filesystem.FileSystem) (string, error) {
 	started := time.Now()
 
-	f, err := fsi.OpenFile(ctx, filepath.Join(b.Workspace, "big_file"), os.O_CREATE|os.O_WRONLY, os.ModePerm)
+	f, err := fsi.OpenFile(ctx, path.Join(b.Workspace, "big_file"), os.O_CREATE|os.O_WRONLY, os.ModePerm)
 	if err != nil {
 		return "", err
 	}
@@ -92,7 +92,7 @@ func (b *Benchmark) testBigFileWrite(ctx context.Context, fsi filesystem.FileSys
 func (b *Benchmark) testBigFileRead(ctx context.Context, fsi filesystem.FileSystem) (string, error) {
 	started := time.Now()
 
-	f, err := fsi.OpenFile(ctx, filepath.Join(b.Workspace, "big_file"), os.O_RDONLY, os.ModePerm)
+	f, err := fsi.OpenFile(ctx, path.Join(b.Workspace, "big_file"), os.O_RDONLY, os.ModePerm)
 	if err != nil {
 		return "", fmt.Errorf("open failed: %w", err)
 	}
