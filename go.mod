@@ -18,6 +18,7 @@ require (
 )
 
 require (
+	cuelang.org/go v0.13.2
 	github.com/container-storage-interface/spec v1.11.0
 	github.com/fclairamb/ftpserverlib v0.26.0
 	github.com/hanwen/go-fuse/v2 v2.8.0
@@ -32,12 +33,11 @@ require (
 	golang.org/x/sync v0.16.0
 	google.golang.org/grpc v1.73.0
 	google.golang.org/protobuf v1.36.6
-	k8s.io/apimachinery v0.33.3
+	k8s.io/apimachinery v0.33.4
 	k8s.io/utils v0.0.0-20250604170112-4c0f3b243397
 )
 
 require (
-	cuelang.org/go v0.13.2 // indirect
 	github.com/andybalholm/brotli v1.2.0 // indirect
 	github.com/aws/aws-sdk-go v1.44.256 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
