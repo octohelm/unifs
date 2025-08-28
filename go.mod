@@ -18,6 +18,7 @@ require (
 )
 
 require (
+	cuelang.org/go v0.13.2
 	github.com/container-storage-interface/spec v1.11.0
 	github.com/fclairamb/ftpserverlib v0.26.0
 	github.com/hanwen/go-fuse/v2 v2.8.0
@@ -32,12 +33,11 @@ require (
 	golang.org/x/sync v0.16.0
 	google.golang.org/grpc v1.73.0
 	google.golang.org/protobuf v1.36.6
-	k8s.io/apimachinery v0.33.3
+	k8s.io/apimachinery v0.34.0
 	k8s.io/utils v0.0.0-20250604170112-4c0f3b243397
 )
 
 require (
-	cuelang.org/go v0.13.2 // indirect
 	github.com/andybalholm/brotli v1.2.0 // indirect
 	github.com/aws/aws-sdk-go v1.44.256 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
@@ -48,7 +48,7 @@ require (
 	github.com/fatih/color v1.18.0 // indirect
 	github.com/fclairamb/go-log v0.5.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
-	github.com/fxamacker/cbor/v2 v2.8.0 // indirect
+	github.com/fxamacker/cbor/v2 v2.9.0 // indirect
 	github.com/go-ini/ini v1.67.0 // indirect
 	github.com/go-json-experiment/json v0.0.0-20250709061156-d2cd4771eb1b // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
@@ -113,4 +113,5 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	mvdan.cc/gofumpt v0.8.0 // indirect
+	sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 // indirect
 )
