@@ -29,7 +29,7 @@ require (
 	github.com/mitchellh/go-ps v1.0.0
 	github.com/sevlyar/go-daemon v0.1.6
 	github.com/spf13/afero v1.15.0
-	golang.org/x/net v0.43.0
+	golang.org/x/net v0.45.0
 	golang.org/x/sync v0.17.0
 	google.golang.org/grpc v1.75.0
 	google.golang.org/protobuf v1.36.8
