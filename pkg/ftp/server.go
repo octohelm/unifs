@@ -10,11 +10,11 @@ import (
 	"time"
 
 	ftpserver "github.com/fclairamb/ftpserverlib"
-	"github.com/go-courier/logr"
 	"github.com/innoai-tech/infra/pkg/configuration"
 	"github.com/octohelm/unifs/pkg/aferofsutil"
 	"github.com/octohelm/unifs/pkg/filesystem"
 	fslogr "github.com/octohelm/unifs/pkg/filesystem/logr"
+	"github.com/octohelm/x/logr"
 	"github.com/spf13/afero"
 )
 

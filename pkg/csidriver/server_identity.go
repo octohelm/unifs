@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
-	"github.com/go-courier/logr"
+	"github.com/octohelm/x/logr"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 

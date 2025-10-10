@@ -7,10 +7,10 @@ import (
 	"strings"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
-	"github.com/go-courier/logr"
 	"github.com/innoai-tech/infra/pkg/configuration"
 	"github.com/octohelm/unifs/internal/version"
 	"github.com/octohelm/unifs/pkg/strfmt"
+	"github.com/octohelm/x/logr"
 	"google.golang.org/grpc"
 )
 

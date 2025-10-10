@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
-	"github.com/go-courier/logr/slog"
+	"github.com/octohelm/x/logr/slog"
 )
 
 func TestController(t *testing.T) {

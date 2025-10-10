@@ -7,7 +7,6 @@ import (
 
 	"github.com/octohelm/unifs/pkg/csidriver/mounter"
 
-	"github.com/go-courier/logr"
 	"github.com/hanwen/go-fuse/v2/fs"
 	fusefuse "github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/innoai-tech/infra/pkg/cli"
@@ -16,6 +15,7 @@ import (
 	"github.com/octohelm/unifs/pkg/filesystem/api"
 	"github.com/octohelm/unifs/pkg/fuse"
 	"github.com/octohelm/unifs/pkg/strfmt"
+	"github.com/octohelm/x/logr"
 	daemon "github.com/sevlyar/go-daemon"
 )
 

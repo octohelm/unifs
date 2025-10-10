@@ -5,9 +5,9 @@ import (
 	"path"
 	"testing"
 
-	"github.com/go-courier/logr"
-	"github.com/go-courier/logr/slog"
 	"github.com/kubernetes-csi/csi-test/v5/pkg/sanity"
+	"github.com/octohelm/x/logr"
+	"github.com/octohelm/x/logr/slog"
 )
 
 func TestDriver(t *testing.T) {
