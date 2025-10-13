@@ -17,7 +17,7 @@ require (
 )
 
 require (
-	cuelang.org/go v0.14.1
+	cuelang.org/go v0.14.2
 	github.com/container-storage-interface/spec v1.11.0
 	github.com/fclairamb/ftpserverlib v0.27.0
 	github.com/hanwen/go-fuse/v2 v2.8.0
