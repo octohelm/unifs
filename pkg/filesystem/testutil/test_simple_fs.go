@@ -9,10 +9,11 @@ import (
 	"os"
 	"testing"
 
-	"github.com/octohelm/unifs/pkg/filesystem"
-	"github.com/octohelm/unifs/pkg/units"
 	"github.com/octohelm/x/slices"
 	testingx "github.com/octohelm/x/testing"
+
+	"github.com/octohelm/unifs/pkg/filesystem"
+	"github.com/octohelm/unifs/pkg/units"
 )
 
 func TestSimpleFS(t *testing.T, fs filesystem.FileSystem) {

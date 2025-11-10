@@ -9,6 +9,7 @@ import (
 
 	"github.com/hanwen/go-fuse/v2/fs"
 	"github.com/hanwen/go-fuse/v2/fuse"
+
 	"github.com/octohelm/unifs/pkg/filesystem"
 )
 

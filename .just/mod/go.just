@@ -1,5 +1,7 @@
+devtool := 'go tool devtool'
+
 gen:
-    go tool devtool gen --all ./internal/cmd/crkit
+    {{ devtool }} gen --all ./cmd/unifs
 
 update:
     go get -u ./...
@@ -14,4 +16,4 @@ test-race:
     CGO_ENABLED=1 go test -race -count=1 ./...
 
 fmt:
-    go tool gofumpt -w -l .
+    {{ devtool }} fmt -w -l .

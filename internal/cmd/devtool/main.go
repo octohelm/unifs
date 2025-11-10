@@ -7,7 +7,10 @@ import (
 	"github.com/innoai-tech/infra/devpkg/gengo"
 	"github.com/innoai-tech/infra/pkg/cli"
 	"github.com/innoai-tech/infra/pkg/otel"
+	"github.com/octohelm/gengo/pkg/format"
+)
 
+import (
 	_ "github.com/octohelm/gengo/devpkg/deepcopygen"
 	_ "github.com/octohelm/gengo/devpkg/runtimedocgen"
 )
@@ -19,6 +22,11 @@ func init() {
 		cli.C `name:"gen"`
 		otel.Otel
 		gengo.Gengo
+	}{})
+
+	cli.AddTo(App, &struct {
+		cli.C `name:"fmt"`
+		format.Project
 	}{})
 }
 

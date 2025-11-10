@@ -8,11 +8,11 @@ import (
 	"os"
 	"testing"
 
+	"golang.org/x/net/webdav"
+
 	"github.com/octohelm/unifs/pkg/filesystem"
 	"github.com/octohelm/unifs/pkg/filesystem/testutil"
 	"github.com/octohelm/unifs/pkg/strfmt"
-
-	"golang.org/x/net/webdav"
 )
 
 func TestWebdavFs(t *testing.T) {

@@ -6,8 +6,9 @@ import (
 	"path"
 	"testing"
 
-	"github.com/octohelm/unifs/pkg/filesystem/local"
 	testingx "github.com/octohelm/x/testing"
+
+	"github.com/octohelm/unifs/pkg/filesystem/local"
 )
 
 func TestWrite(t *testing.T) {

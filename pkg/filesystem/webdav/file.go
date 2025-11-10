@@ -6,9 +6,10 @@ import (
 	"os"
 	"strings"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/octohelm/unifs/pkg/filesystem"
 	"github.com/octohelm/unifs/pkg/filesystem/webdav/client"
-	"golang.org/x/sync/errgroup"
 )
 
 type file struct {

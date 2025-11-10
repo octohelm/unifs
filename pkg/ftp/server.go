@@ -11,11 +11,12 @@ import (
 
 	ftpserver "github.com/fclairamb/ftpserverlib"
 	"github.com/innoai-tech/infra/pkg/configuration"
+	"github.com/octohelm/x/logr"
+	"github.com/spf13/afero"
+
 	"github.com/octohelm/unifs/pkg/aferofsutil"
 	"github.com/octohelm/unifs/pkg/filesystem"
 	fslogr "github.com/octohelm/unifs/pkg/filesystem/logr"
-	"github.com/octohelm/x/logr"
-	"github.com/spf13/afero"
 )
 
 var _ configuration.Server = &Server{}

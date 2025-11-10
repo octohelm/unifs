@@ -1,6 +1,8 @@
 package client
 
-import "net/url"
+import (
+	"net/url"
+)
 
 type Href url.URL
 

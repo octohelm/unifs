@@ -5,18 +5,18 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/octohelm/unifs/pkg/csidriver/mounter"
-
 	"github.com/hanwen/go-fuse/v2/fs"
 	fusefuse "github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/innoai-tech/infra/pkg/cli"
 	"github.com/innoai-tech/infra/pkg/configuration"
 	"github.com/innoai-tech/infra/pkg/otel"
+	"github.com/octohelm/x/logr"
+	daemon "github.com/sevlyar/go-daemon"
+
+	"github.com/octohelm/unifs/pkg/csidriver/mounter"
 	"github.com/octohelm/unifs/pkg/filesystem/api"
 	"github.com/octohelm/unifs/pkg/fuse"
 	"github.com/octohelm/unifs/pkg/strfmt"
-	"github.com/octohelm/x/logr"
-	daemon "github.com/sevlyar/go-daemon"
 )
 
 func init() {

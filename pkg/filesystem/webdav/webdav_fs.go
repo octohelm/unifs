@@ -7,9 +7,10 @@ import (
 	"path"
 	"strings"
 
+	"golang.org/x/net/webdav"
+
 	"github.com/octohelm/unifs/pkg/filesystem"
 	"github.com/octohelm/unifs/pkg/filesystem/webdav/client"
-	"golang.org/x/net/webdav"
 )
 
 func NewFS(c client.Client) filesystem.FileSystem {

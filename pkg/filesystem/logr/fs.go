@@ -4,8 +4,9 @@ import (
 	"context"
 	"os"
 
-	"github.com/octohelm/unifs/pkg/filesystem"
 	"github.com/octohelm/x/logr"
+
+	"github.com/octohelm/unifs/pkg/filesystem"
 )
 
 func Wrap(fsys filesystem.FileSystem, logger logr.Logger) filesystem.FileSystem {

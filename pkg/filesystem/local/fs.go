@@ -1,8 +1,9 @@
 package local
 
 import (
-	"github.com/octohelm/unifs/pkg/filesystem"
 	"golang.org/x/net/webdav"
+
+	"github.com/octohelm/unifs/pkg/filesystem"
 )
 
 func NewFS(prefix string) filesystem.FileSystem {

@@ -7,8 +7,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/octohelm/unifs/pkg/filesystem"
 	"github.com/spf13/afero"
+
+	"github.com/octohelm/unifs/pkg/filesystem"
 )
 
 func From(fs filesystem.FileSystem) afero.Fs {

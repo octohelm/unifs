@@ -10,10 +10,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/octohelm/unifs/pkg/filesystem"
-
 	"golang.org/x/net/webdav"
 
+	"github.com/octohelm/unifs/pkg/filesystem"
+)
+
+import (
 	_ "unsafe"
 )
 

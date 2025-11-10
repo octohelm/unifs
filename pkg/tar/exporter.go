@@ -3,11 +3,13 @@ package tar
 import (
 	"archive/tar"
 	"context"
-	"cuelang.org/go/pkg/path"
-	"github.com/octohelm/unifs/pkg/filesystem"
 	"io"
 	"io/fs"
 	"os"
+
+	"cuelang.org/go/pkg/path"
+
+	"github.com/octohelm/unifs/pkg/filesystem"
 )
 
 func WithBase(base string) ExportOption {

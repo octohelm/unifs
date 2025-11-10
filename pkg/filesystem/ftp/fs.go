@@ -8,8 +8,9 @@ import (
 	"strings"
 
 	"github.com/jlaffaye/ftp"
-	"github.com/octohelm/unifs/pkg/filesystem"
 	"golang.org/x/net/webdav"
+
+	"github.com/octohelm/unifs/pkg/filesystem"
 )
 
 func NewFS(c *Config) filesystem.FileSystem {

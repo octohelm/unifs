@@ -12,10 +12,11 @@ import (
 	"github.com/johannesboyne/gofakes3"
 	"github.com/johannesboyne/gofakes3/backend/s3mem"
 	"github.com/octohelm/courier/pkg/courierhttp"
+	testingx "github.com/octohelm/x/testing"
+
 	"github.com/octohelm/unifs/pkg/filesystem"
 	"github.com/octohelm/unifs/pkg/filesystem/testutil"
 	"github.com/octohelm/unifs/pkg/strfmt"
-	testingx "github.com/octohelm/x/testing"
 )
 
 func TestS3Fs(t *testing.T) {
