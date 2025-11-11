@@ -7,6 +7,8 @@ tool (
 	github.com/octohelm/unifs/internal/cmd/devtool
 )
 
+
+// +gengo:import:group=0_controlled
 require (
 	github.com/innoai-tech/infra v0.0.0-20251110022754-50e675484807
 	github.com/octohelm/courier v0.0.0-20251010073531-57524a0631a3

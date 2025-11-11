@@ -17,11 +17,11 @@ jobs:
       GOSUMDB: sum.golang.org
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - uses: extractions/setup-just@v2
-      - uses: docker/setup-qemu-action@v2
+      - uses: extractions/setup-just@v3
+      - uses: docker/setup-qemu-action@v3
 
       - run: curl -sSLf https://raw.githubusercontent.com/octohelm/piper/main/install.sh | sudo sh
 

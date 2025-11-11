@@ -3,8 +3,9 @@ package filesystem
 import (
 	"os"
 
-	contextx "github.com/octohelm/x/context"
 	"golang.org/x/net/webdav"
+
+	contextx "github.com/octohelm/x/context"
 )
 
 type (

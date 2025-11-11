@@ -11,6 +11,7 @@ import (
 
 	"github.com/johannesboyne/gofakes3"
 	"github.com/johannesboyne/gofakes3/backend/s3mem"
+
 	"github.com/octohelm/courier/pkg/courierhttp"
 	testingx "github.com/octohelm/x/testing"
 

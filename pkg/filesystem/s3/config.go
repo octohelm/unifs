@@ -8,9 +8,10 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/innoai-tech/infra/pkg/http/middleware"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
+
+	"github.com/innoai-tech/infra/pkg/http/middleware"
 	courierhttpclient "github.com/octohelm/courier/pkg/courierhttp/client"
 
 	"github.com/octohelm/unifs/pkg/filesystem"

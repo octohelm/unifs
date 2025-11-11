@@ -21,7 +21,7 @@ func TestWebdavFs(t *testing.T) {
 	})
 
 	t.Run("Full", func(t *testing.T) {
-		testutil.TestFullFS(t, newWebdavFS(t, false))
+		testutil.TestFullFS(t, newWebdavFS(t, true))
 	})
 
 	t.Run("Bench", func(t *testing.T) {
