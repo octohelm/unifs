@@ -7,7 +7,6 @@ tool (
 	github.com/octohelm/unifs/internal/cmd/devtool
 )
 
-
 // +gengo:import:group=0_controlled
 require (
 	github.com/innoai-tech/infra v0.0.0-20251110022754-50e675484807
@@ -32,7 +31,7 @@ require (
 	golang.org/x/sync v0.18.0
 	google.golang.org/grpc v1.76.0
 	google.golang.org/protobuf v1.36.10
-	k8s.io/apimachinery v0.34.1
+	k8s.io/apimachinery v0.34.2
 	k8s.io/utils v0.0.0-20251002143259-bc988d571ff4
 )
 
