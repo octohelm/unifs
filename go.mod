@@ -7,7 +7,6 @@ tool (
 	github.com/octohelm/unifs/internal/cmd/devtool
 )
 
-
 // +gengo:import:group=0_controlled
 require (
 	github.com/innoai-tech/infra v0.0.0-20251110022754-50e675484807
@@ -28,9 +27,9 @@ require (
 	github.com/mitchellh/go-ps v1.0.0
 	github.com/sevlyar/go-daemon v0.1.6
 	github.com/spf13/afero v1.15.0
-	golang.org/x/net v0.46.0
+	golang.org/x/net v0.46.1-0.20251013234738-63d1a5100f82
 	golang.org/x/sync v0.18.0
-	google.golang.org/grpc v1.76.0
+	google.golang.org/grpc v1.77.0
 	google.golang.org/protobuf v1.36.10
 	k8s.io/apimachinery v0.34.1
 	k8s.io/utils v0.0.0-20251002143259-bc988d571ff4
