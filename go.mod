@@ -7,7 +7,6 @@ tool (
 	github.com/octohelm/unifs/internal/cmd/devtool
 )
 
-
 // +gengo:import:group=0_controlled
 require (
 	github.com/innoai-tech/infra v0.0.0-20251110022754-50e675484807
@@ -17,7 +16,7 @@ require (
 )
 
 require (
-	cuelang.org/go v0.15.0
+	cuelang.org/go v0.15.1
 	github.com/container-storage-interface/spec v1.12.0
 	github.com/fclairamb/ftpserverlib v0.27.0
 	github.com/hanwen/go-fuse/v2 v2.9.0
