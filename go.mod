@@ -28,7 +28,7 @@ require (
 	github.com/sevlyar/go-daemon v0.1.6
 	github.com/spf13/afero v1.15.0
 	golang.org/x/net v0.47.0
-	golang.org/x/sync v0.18.0
+	golang.org/x/sync v0.19.0
 	google.golang.org/grpc v1.77.0
 	google.golang.org/protobuf v1.36.10
 	k8s.io/apimachinery v0.34.2
