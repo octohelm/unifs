@@ -44,7 +44,7 @@ func mount(t *testing.T, debug bool) string {
 	}
 
 	t.Cleanup(func() {
-		for i := 0; i < 5; i++ {
+		for range 5 {
 			if err := state.Unmount(); err == nil {
 				break
 			}

@@ -30,7 +30,7 @@ func IsNotFound(err error) bool {
 	return false
 }
 
-func HTTPErrorf(code int, format string, a ...interface{}) *HTTPError {
+func HTTPErrorf(code int, format string, a ...any) *HTTPError {
 	return &HTTPError{code, fmt.Errorf(format, a...)}
 }
 

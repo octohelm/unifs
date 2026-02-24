@@ -42,7 +42,7 @@ type Prop struct {
 	Raw     []RawXMLValue `xml:",any"`
 }
 
-func EncodeProp(values ...interface{}) (*Prop, error) {
+func EncodeProp(values ...any) (*Prop, error) {
 	l := make([]RawXMLValue, len(values))
 	for i, v := range values {
 		raw, err := EncodeRawXMLElement(v)
@@ -64,7 +64,7 @@ func (p *Prop) Get(name xml.Name) *RawXMLValue {
 	return nil
 }
 
-func (p *Prop) Decode(v interface{}) error {
+func (p *Prop) Decode(v any) error {
 	name, err := valueXMLName(v)
 	if err != nil {
 		return err

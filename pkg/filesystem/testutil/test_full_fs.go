@@ -177,11 +177,11 @@ func TestFullFS(t *testing.T, fs filesystem.FileSystem) {
 		ctx := context.Background()
 
 		tc = strings.TrimSpace(tc)
-		j := strings.IndexByte(tc, ' ')
-		if j < 0 {
+		before, after, ok := strings.Cut(tc, " ")
+		if !ok {
 			t.Fatalf("test case #%d %q: invalid command", i, tc)
 		}
-		op, arg := tc[:j], tc[j+1:]
+		op, arg := before, after
 
 		switch op {
 		default:

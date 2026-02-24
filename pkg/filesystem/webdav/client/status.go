@@ -17,7 +17,7 @@ func (s *Status) MarshalText() ([]byte, error) {
 	if text == "" {
 		text = http.StatusText(s.Code)
 	}
-	return []byte(fmt.Sprintf("HTTP/1.1 %v %v", s.Code, text)), nil
+	return fmt.Appendf(nil, "HTTP/1.1 %v %v", s.Code, text), nil
 }
 
 func (s *Status) UnmarshalText(b []byte) error {
@@ -27,11 +27,11 @@ func (s *Status) UnmarshalText(b []byte) error {
 
 	parts := strings.SplitN(string(b), " ", 3)
 	if len(parts) != 3 {
-		return fmt.Errorf("webdav: invalid HTTP status %q: expected 3 fields", s)
+		return fmt.Errorf("webdav: invalid HTTP status %d: expected 3 fields", s.Code)
 	}
 	code, err := strconv.Atoi(parts[1])
 	if err != nil {
-		return fmt.Errorf("webdav: invalid HTTP status %q: failed to parse code: %v", s, err)
+		return fmt.Errorf("webdav: invalid HTTP status %d: failed to parse code: %v", s.Code, err)
 	}
 
 	s.Code = code

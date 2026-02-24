@@ -17,7 +17,7 @@ type RawXMLValue struct {
 
 	// Unfortunately encoding/xml doesn't offer TokenWriter, so we need to
 	// cache outgoing data.
-	out interface{}
+	out any
 }
 
 // NewRawXMLElement creates a new RawXMLValue for an element.
@@ -27,7 +27,7 @@ func NewRawXMLElement(name xml.Name, attr []xml.Attr, children []RawXMLValue) *R
 
 // EncodeRawXMLElement encodes a value into a new RawXMLValue. The XML value
 // can only be used for marshalling.
-func EncodeRawXMLElement(v interface{}) (*RawXMLValue, error) {
+func EncodeRawXMLElement(v any) (*RawXMLValue, error) {
 	return &RawXMLValue{out: v}, nil
 }
 
@@ -87,7 +87,7 @@ var (
 	_ xml.Unmarshaler = (*RawXMLValue)(nil)
 )
 
-func (val *RawXMLValue) Decode(v interface{}) error {
+func (val *RawXMLValue) Decode(v any) error {
 	return xml.NewTokenDecoder(val.TokenReader()).Decode(&v)
 }
 
@@ -149,9 +149,9 @@ func (tr *rawXMLValueReader) Token() (xml.Token, error) {
 
 var _ xml.TokenReader = (*rawXMLValueReader)(nil)
 
-func valueXMLName(v interface{}) (xml.Name, error) {
+func valueXMLName(v any) (xml.Name, error) {
 	t := reflect.TypeOf(v)
-	for t.Kind() == reflect.Ptr {
+	for t.Kind() == reflect.Pointer {
 		t = t.Elem()
 	}
 	if t.Kind() != reflect.Struct {
@@ -161,7 +161,7 @@ func valueXMLName(v interface{}) (xml.Name, error) {
 	if !ok {
 		return xml.Name{}, fmt.Errorf("webdav: %T is missing an XMLName struct field", v)
 	}
-	if nameField.Type != reflect.TypeOf(xml.Name{}) {
+	if nameField.Type != reflect.TypeFor[xml.Name]() {
 		return xml.Name{}, fmt.Errorf("webdav: %T.XMLName isn't an xml.Name", v)
 	}
 	tag := nameField.Tag.Get("xml")

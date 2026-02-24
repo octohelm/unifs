@@ -128,7 +128,7 @@ func (resp *Response) Path() (string, error) {
 	return path, err
 }
 
-func (resp *Response) DecodeProp(values ...interface{}) error {
+func (resp *Response) DecodeProp(values ...any) error {
 	for _, v := range values {
 		// TODO wrap errors with more context (XML name)
 		name, err := valueXMLName(v)
@@ -164,7 +164,7 @@ func newPropError(name xml.Name, err error) error {
 	return fmt.Errorf("property <%v %v>: %w", name.Space, name.Local, err)
 }
 
-func (resp *Response) EncodeProp(code int, v interface{}) error {
+func (resp *Response) EncodeProp(code int, v any) error {
 	raw, err := EncodeRawXMLElement(v)
 	if err != nil {
 		return err
