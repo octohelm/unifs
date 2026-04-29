@@ -10,9 +10,9 @@ import (
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
+	courierhttpclient "github.com/octohelm/courier/pkg/courierhttp/client"
 
 	"github.com/innoai-tech/infra/pkg/http/middleware"
-	courierhttpclient "github.com/octohelm/courier/pkg/courierhttp/client"
 
 	"github.com/octohelm/unifs/pkg/filesystem"
 	"github.com/octohelm/unifs/pkg/strfmt"
@@ -39,7 +39,7 @@ func (c *Config) AsFileSystem(ctx context.Context) (filesystem.FileSystem, error
 	if presignAsStr := c.Endpoint.Extra.Get("presignAs"); presignAsStr != "" {
 		u, err := url.Parse(presignAsStr)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("parse presignAs %q: %w", presignAsStr, err)
 		}
 		presignAs = u
 	}
@@ -71,7 +71,7 @@ func (c *Config) AsFileSystem(ctx context.Context) (filesystem.FileSystem, error
 
 	ok, err := client.BucketExists(ctx, c.Endpoint.Base())
 	if err != nil {
-		return nil, fmt.Errorf("check bucket failed %w", err)
+		return nil, fmt.Errorf("check bucket %q: %w", c.Endpoint.Base(), err)
 	}
 	if !ok {
 		_ = client.MakeBucket(ctx, c.Endpoint.Base(), minio.MakeBucketOptions{})
@@ -86,7 +86,7 @@ func (c *Config) AsFileSystem(ctx context.Context) (filesystem.FileSystem, error
 	if presignAs != nil {
 		clientForPresign, err := minio.New(presignAs.Host, o)
 		if err != nil {
-			return nil, fmt.Errorf("new s3 client failed: %w", err)
+			return nil, fmt.Errorf("new presign s3 client %q: %w", presignAs.Host, err)
 		}
 
 		presignAs.Host = c.Bucket() + "." + presignAs.Host
@@ -143,7 +143,7 @@ func (rt *fakeBucket) RoundTrip(req *http.Request) (*http.Response, error) {
 
 	resp, err := cc.Transport.RoundTrip(req)
 	if err != nil {
-		return resp, nil
+		return nil, fmt.Errorf("round trip %s %s: %w", req.Method, req.URL.String(), err)
 	}
 
 	if req.Method == http.MethodHead {

@@ -14,4 +14,8 @@ func TestLocalFS(t *testing.T) {
 	t.Run("Full", func(t *testing.T) {
 		testutil.TestFullFS(t, NewFS(t.TempDir()))
 	})
+
+	t.Run("Standard", func(t *testing.T) {
+		testutil.TestStandardFS(t, NewFS(t.TempDir()))
+	})
 }

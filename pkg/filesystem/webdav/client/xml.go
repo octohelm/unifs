@@ -8,30 +8,27 @@ import (
 	"strings"
 )
 
-// RawXMLValue is a raw XML value. It implements xml.Unmarshaler and
-// xml.Marshaler and can be used to delay XML decoding or precompute an XML
-// encoding.
+// RawXMLValue 表示原始 XML 值，实现 xml.Unmarshaler 和 xml.Marshaler，
+// 可用于延迟 XML 解码或预先计算 XML 编码。
 type RawXMLValue struct {
-	tok      xml.Token // guaranteed not to be xml.EndElement
+	tok      xml.Token // 保证不会是 xml.EndElement。
 	children []RawXMLValue
 
-	// Unfortunately encoding/xml doesn't offer TokenWriter, so we need to
-	// cache outgoing data.
+	// encoding/xml 没有提供 TokenWriter，因此这里缓存待输出数据。
 	out any
 }
 
-// NewRawXMLElement creates a new RawXMLValue for an element.
+// NewRawXMLElement 为元素创建 RawXMLValue。
 func NewRawXMLElement(name xml.Name, attr []xml.Attr, children []RawXMLValue) *RawXMLValue {
-	return &RawXMLValue{tok: xml.StartElement{name, attr}, children: children}
+	return &RawXMLValue{tok: xml.StartElement{Name: name, Attr: attr}, children: children}
 }
 
-// EncodeRawXMLElement encodes a value into a new RawXMLValue. The XML value
-// can only be used for marshalling.
+// EncodeRawXMLElement 将值编码到新的 RawXMLValue；该 XML 值只能用于序列化。
 func EncodeRawXMLElement(v any) (*RawXMLValue, error) {
 	return &RawXMLValue{out: v}, nil
 }
 
-// UnmarshalXML implements xml.Unmarshaler.
+// UnmarshalXML 实现 xml.Unmarshaler。
 func (val *RawXMLValue) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 	val.tok = start
 	val.children = nil
@@ -40,13 +37,13 @@ func (val *RawXMLValue) UnmarshalXML(d *xml.Decoder, start xml.StartElement) err
 	for {
 		tok, err := d.Token()
 		if err != nil {
-			return err
+			return fmt.Errorf("read XML token for <%s %s>: %w", start.Name.Space, start.Name.Local, err)
 		}
 		switch tok := tok.(type) {
 		case xml.StartElement:
 			child := RawXMLValue{}
 			if err := child.UnmarshalXML(d, tok); err != nil {
-				return err
+				return fmt.Errorf("decode child XML element <%s %s>: %w", tok.Name.Space, tok.Name.Local, err)
 			}
 			val.children = append(val.children, child)
 		case xml.EndElement:
@@ -57,28 +54,37 @@ func (val *RawXMLValue) UnmarshalXML(d *xml.Decoder, start xml.StartElement) err
 	}
 }
 
-// MarshalXML implements xml.Marshaler.
+// MarshalXML 实现 xml.Marshaler。
 func (val *RawXMLValue) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 	if val.out != nil {
-		return e.Encode(val.out)
+		if err := e.Encode(val.out); err != nil {
+			return fmt.Errorf("encode XML value %T: %w", val.out, err)
+		}
+		return nil
 	}
 
 	switch tok := val.tok.(type) {
 	case xml.StartElement:
 		if err := e.EncodeToken(tok); err != nil {
-			return err
+			return fmt.Errorf("encode XML start <%s %s>: %w", tok.Name.Space, tok.Name.Local, err)
 		}
 		for _, child := range val.children {
-			// TODO: find a sensible value for the start argument?
+			// TODO 为起始参数选择更合适的值。
 			if err := child.MarshalXML(e, xml.StartElement{}); err != nil {
-				return err
+				return fmt.Errorf("encode XML child of <%s %s>: %w", tok.Name.Space, tok.Name.Local, err)
 			}
 		}
-		return e.EncodeToken(tok.End())
+		if err := e.EncodeToken(tok.End()); err != nil {
+			return fmt.Errorf("encode XML end <%s %s>: %w", tok.Name.Space, tok.Name.Local, err)
+		}
+		return nil
 	case xml.EndElement:
 		panic("unexpected end element")
 	default:
-		return e.EncodeToken(tok)
+		if err := e.EncodeToken(tok); err != nil {
+			return fmt.Errorf("encode XML token %T: %w", tok, err)
+		}
+		return nil
 	}
 }
 
@@ -88,7 +94,10 @@ var (
 )
 
 func (val *RawXMLValue) Decode(v any) error {
-	return xml.NewTokenDecoder(val.TokenReader()).Decode(&v)
+	if err := xml.NewTokenDecoder(val.TokenReader()).Decode(v); err != nil {
+		return fmt.Errorf("decode raw XML into %T: %w", v, err)
+	}
+	return nil
 }
 
 func (val *RawXMLValue) XMLName() (name xml.Name, ok bool) {
@@ -98,7 +107,7 @@ func (val *RawXMLValue) XMLName() (name xml.Name, ok bool) {
 	return xml.Name{}, false
 }
 
-// TokenReader returns a stream of tokens for the XML value.
+// TokenReader 返回该 XML 值的 token 流。
 func (val *RawXMLValue) TokenReader() xml.TokenReader {
 	if val.out != nil {
 		panic("webdav: called RawXMLValue.TokenReader on a marshal-only XML value")
@@ -139,7 +148,10 @@ func (tr *rawXMLValueReader) Token() (xml.Token, error) {
 			tr.childReader = nil
 			tr.child++
 		} else {
-			return tok, err
+			if err != nil {
+				return nil, fmt.Errorf("read child XML token: %w", err)
+			}
+			return tok, nil
 		}
 	}
 
@@ -173,5 +185,5 @@ func valueXMLName(v any) (xml.Name, error) {
 	if len(nameParts) != 2 {
 		return xml.Name{}, fmt.Errorf("webdav: expected a namespace and local name in %T.XMLName's xml tag", v)
 	}
-	return xml.Name{nameParts[0], nameParts[1]}, nil
+	return xml.Name{Space: nameParts[0], Local: nameParts[1]}, nil
 }

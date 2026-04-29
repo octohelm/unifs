@@ -2,6 +2,7 @@ package webdav
 
 import (
 	"context"
+	"fmt"
 	"net/url"
 
 	"github.com/octohelm/unifs/pkg/filesystem/webdav/client"
@@ -37,7 +38,7 @@ func (c *Config) Client(ctx context.Context) (client.Client, error) {
 
 	_, err := c.c.PropFind(ctx, "/", 0, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("check webdav endpoint %q: %w", u.String(), err)
 	}
 
 	return c.c, nil

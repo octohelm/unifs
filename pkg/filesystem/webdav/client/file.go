@@ -1,6 +1,7 @@
 package client
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"sync"
@@ -62,7 +63,7 @@ func (f *file) Read(p []byte) (n int, err error) {
 		}
 		body, err := f.doRequest(offset, 0)
 		if err != nil {
-			return 0, err
+			return 0, fmt.Errorf("open response body at offset %d: %w", offset, err)
 		}
 		f.lastBody = body
 	}
@@ -88,7 +89,9 @@ func (f *file) Close() error {
 
 	eg.Go(func() error {
 		if f.lastBody != nil {
-			return f.lastBody.Close()
+			if err := f.lastBody.Close(); err != nil {
+				return fmt.Errorf("close response body: %w", err)
+			}
 		}
 		f.lastBody = nil
 		return nil

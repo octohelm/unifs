@@ -85,5 +85,10 @@ func TestFTPFS(t *testing.T) {
 			testutil.TestFullFS(t, NewFS(c))
 			fmt.Println(c.p.count)
 		})
+
+		t.Run("Standard", func(t *testing.T) {
+			testutil.TestStandardFS(t, NewFS(c))
+			fmt.Println(c.p.count)
+		})
 	})
 }

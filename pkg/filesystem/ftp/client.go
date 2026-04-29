@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	"fmt"
 	"io"
 	"net/textproto"
 	"net/url"
@@ -77,17 +78,19 @@ func (p *Pool) Conn(ctx context.Context, args ...any) (Conn, error) {
 
 	c, err := ftp.Dial(p.Addr, options...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("ftp dial %q: %w", p.Addr, err)
 	}
 
 	if p.Auth != nil {
 		pass, _ := p.Auth.Password()
 		if err := c.Login(p.Auth.Username(), pass); err != nil {
-			return nil, err
+			_ = c.Quit()
+			return nil, fmt.Errorf("ftp login %q as %q: %w", p.Addr, p.Auth.Username(), err)
 		}
 	} else {
 		if err := c.Login("anonymous", "anonymous"); err != nil {
-			return nil, err
+			_ = c.Quit()
+			return nil, fmt.Errorf("ftp anonymous login %q: %w", p.Addr, err)
 		}
 	}
 
@@ -111,13 +114,13 @@ func (c *conn) MakeDir(pathname string) error {
 func (c *conn) GetEntry(pathname string) (*ftp.Entry, error) {
 	e, err := c.conn.GetEntry(pathname)
 	if err != nil {
-		// to handle ftp MLST not support
+		// 兼容 FTP 服务端不支持 MLST 的情况。
 		terr := &textproto.Error{}
 		if errors.As(err, &terr) {
 			if terr.Code == ftp.StatusNotImplemented {
 				if pathname == "" || pathname == "." || pathname == "/" {
 					if _, err := c.List(pathname); err != nil {
-						return nil, err
+						return nil, fmt.Errorf("ftp list %q: %w", pathname, err)
 					}
 					return &ftp.Entry{
 						Type: ftp.EntryTypeFolder,
@@ -127,7 +130,7 @@ func (c *conn) GetEntry(pathname string) (*ftp.Entry, error) {
 				dir, base := path.Split(pathname)
 				list, err := c.List(path.Clean(dir))
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("ftp list parent %q: %w", path.Clean(dir), err)
 				}
 
 				for _, x := range list {
@@ -142,7 +145,7 @@ func (c *conn) GetEntry(pathname string) (*ftp.Entry, error) {
 			}
 		}
 
-		return nil, err
+		return nil, fmt.Errorf("ftp get entry %q: %w", pathname, err)
 	}
 	return e, nil
 }

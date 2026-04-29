@@ -14,29 +14,33 @@ import (
 	"github.com/octohelm/unifs/pkg/strfmt"
 )
 
+// FileSystemBackend 根据端点配置并初始化文件系统后端。
 type FileSystemBackend struct {
 	// 地址
 	Backend strfmt.Endpoint `flag:"backend,omitzero"`
-	// Overwrite username when not empty
+	// 非空时覆盖用户名
 	UsernameOverwrite string `flag:",omitzero"`
-	// Overwrite password when not empty
+	// 非空时覆盖密码
 	PasswordOverwrite string `flag:",omitzero,secret"`
-	// Overwrite path when not empty
+	// 非空时覆盖路径
 	PathOverwrite string `flag:",omitzero"`
-	// Overwrite extra when not empty
+	// 非空时覆盖 extra 查询参数
 	ExtraOverwrite string `flag:",omitzero"`
 
 	fsi filesystem.FileSystem `flag:"-"`
 }
 
+// Disabled 判断是否未配置后端端点。
 func (m *FileSystemBackend) Disabled(ctx context.Context) bool {
 	return m.Backend.IsZero()
 }
 
+// FileSystem 返回已初始化的文件系统。
 func (m *FileSystemBackend) FileSystem() filesystem.FileSystem {
 	return m.fsi
 }
 
+// Init 根据端点配置初始化文件系统后端。
 func (m *FileSystemBackend) Init(ctx context.Context) error {
 	if m.Disabled(ctx) {
 		return nil
@@ -59,7 +63,7 @@ func (m *FileSystemBackend) Init(ctx context.Context) error {
 	if extra := m.ExtraOverwrite; extra != "" {
 		q, err := url.ParseQuery(extra)
 		if err != nil {
-			return err
+			return fmt.Errorf("parse backend extra %q: %w", extra, err)
 		}
 		endpoint.Extra = q
 	}
@@ -69,7 +73,7 @@ func (m *FileSystemBackend) Init(ctx context.Context) error {
 		conf := &s3.Config{Endpoint: endpoint}
 		fsys, err := conf.AsFileSystem(ctx)
 		if err != nil {
-			return err
+			return fmt.Errorf("init s3 backend %s: %w", endpoint.SecurityString(), err)
 		}
 		m.fsi = fsys
 		return nil
@@ -80,7 +84,7 @@ func (m *FileSystemBackend) Init(ctx context.Context) error {
 		conf := &webdav.Config{Endpoint: endpoint}
 		c, err := conf.Client(ctx)
 		if err != nil {
-			return err
+			return fmt.Errorf("init webdav backend %s: %w", endpoint.SecurityString(), err)
 		}
 		m.fsi = webdav.NewFS(c)
 		return nil
@@ -96,6 +100,7 @@ func (m *FileSystemBackend) Init(ctx context.Context) error {
 	}
 }
 
+// InjectContext 将已初始化的文件系统存入 ctx。
 func (m *FileSystemBackend) InjectContext(ctx context.Context) context.Context {
 	return filesystem.Context.Inject(ctx, m.fsi)
 }

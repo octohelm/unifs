@@ -3,6 +3,7 @@ package s3
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -13,7 +14,6 @@ import (
 	"time"
 
 	"github.com/minio/minio-go/v7"
-
 	"github.com/octohelm/courier/pkg/courierhttp"
 
 	"github.com/octohelm/unifs/pkg/filesystem"
@@ -29,17 +29,17 @@ func openDir(ctx context.Context, fs *fs, name string) (filesystem.File, error) 
 		if os.IsNotExist(err) {
 			if parent := path.Dir(strings.TrimRight(name, "/")); parent != "/" {
 				if _, err := fs.Stat(ctx, parent); err != nil {
-					return nil, err
+					return nil, fmt.Errorf("stat parent dir %q: %w", parent, err)
 				}
 			}
 
 			_, err := fs.s3Client.PutObject(ctx, fs.bucket, fs.path(path.Join(name, dirHolder)), bytes.NewBuffer(nil), 0, minio.PutObjectOptions{})
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("put s3 dir holder %q: %w", path.Join(name, dirHolder), err)
 			}
 			return dir, nil
 		}
-		return nil, err
+		return nil, fmt.Errorf("stat s3 dir %q: %w", name, err)
 	}
 
 	if !info.IsDir() {
@@ -57,7 +57,7 @@ const dirHolder = ".fs_dir"
 func openFileForWrite(ctx context.Context, fs *fs, name string, flags int) (filesystem.File, error) {
 	if parent := path.Dir(strings.TrimRight(name, "/")); parent != "/" {
 		if _, err := fs.Stat(ctx, parent); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("stat parent dir %q: %w", parent, err)
 		}
 	}
 
@@ -69,11 +69,11 @@ func openFileForWrite(ctx context.Context, fs *fs, name string, flags int) (file
 		writeable: true,
 	}
 
-	// wrap as pre-signed
+	// 按配置将写入请求封装为预签名地址。
 	if presignAs, ok := fs.presignForWrite(); ok {
 		u, err := fs.presignClient().PresignedPutObject(ctx, fs.bucket, fs.path(name), 5*time.Minute)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("presign put object %q: %w", name, err)
 		}
 
 		u.Scheme = presignAs.Scheme
@@ -92,12 +92,12 @@ func openFileForRead(ctx context.Context, fs *fs, name string, flags int) (files
 	f := &file{name: name, flags: flags, ctx: ctx, fs: fs}
 
 	if _, err := fs.Stat(ctx, name); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("stat s3 object %q: %w", name, err)
 	}
 
 	o, err := fs.s3Client.GetObject(ctx, fs.bucket, fs.path(name), minio.GetObjectOptions{})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get s3 object %q: %w", name, err)
 	}
 
 	f.object = o
@@ -105,7 +105,7 @@ func openFileForRead(ctx context.Context, fs *fs, name string, flags int) (files
 	if presignAs, ok := fs.presignForRead(); ok {
 		u, err := fs.presignClient().PresignedGetObject(ctx, fs.bucket, fs.path(name), 5*time.Minute, nil)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("presign get object %q: %w", name, err)
 		}
 
 		u.Scheme = presignAs.Scheme
@@ -142,24 +142,24 @@ type file struct {
 	ctx context.Context
 	fs  *fs
 
-	// write
+	// 写入对象
 	writeable     bool
 	pw            *io.PipeWriter
 	errCh         chan error
 	writeInitOnce sync.Once
 
-	// read
+	// 读取对象
 	object *minio.Object
 }
 
 func (f *file) Name() string { return f.name }
 
 func (f *file) Readdir(n int) ([]os.FileInfo, error) {
-	// ListObjects treats leading slashes as part of the directory name
-	// It also needs a trailing slash to list contents of a directory.
+	// ListObjects 会把前导斜杠视为目录名的一部分；
+	// 列出目录内容时也需要尾随斜杠。
 	name := strings.TrimPrefix(f.fs.path(f.Name()), "/")
 
-	// For the root of the bucket, we need to remove any prefix
+	// 对 bucket 根目录，需要移除所有 prefix。
 	if name != "" && !strings.HasSuffix(name, "/") {
 		name += "/"
 	}
@@ -178,7 +178,7 @@ func (f *file) Readdir(n int) ([]os.FileInfo, error) {
 
 	for obj := range objCh {
 		if obj.Err != nil {
-			return nil, obj.Err
+			return nil, fmt.Errorf("list s3 dir %q: %w", f.Name(), obj.Err)
 		}
 
 		if strings.HasSuffix(obj.Key, dirHolder) {
@@ -256,8 +256,7 @@ func (f *file) Write(p []byte) (int, error) {
 			c := context.WithoutCancel(f.ctx)
 
 			if f.flags&os.O_CREATE != 0 {
-				// when create new file
-				// to put 0x00 as placeholder
+				// 创建新文件时写入 0x00 作为占位符。
 				_, err = f.fs.s3Client.PutObject(c, f.fs.bucket, f.fs.path(f.name), bytes.NewBuffer([]byte{0x00}), 1, putObjectOptions)
 				if err != nil {
 					return
@@ -278,13 +277,18 @@ func (f *file) Write(p []byte) (int, error) {
 func (f *file) Close() error {
 	if f.pw != nil {
 		if err := f.pw.Close(); err != nil {
-			return err
+			return fmt.Errorf("close s3 write pipe %q: %w", f.Name(), err)
 		}
-		return <-f.errCh
+		if err := <-f.errCh; err != nil {
+			return fmt.Errorf("put s3 object %q: %w", f.Name(), err)
+		}
+		return nil
 	}
 
 	if f.object != nil {
-		return f.object.Close()
+		if err := f.object.Close(); err != nil {
+			return fmt.Errorf("close s3 object %q: %w", f.Name(), err)
+		}
 	}
 
 	return nil

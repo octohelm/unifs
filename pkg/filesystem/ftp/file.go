@@ -2,6 +2,7 @@ package ftp
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"sync"
@@ -45,7 +46,10 @@ func (f *file) Close() error {
 		})
 	}
 
-	return eg.Wait()
+	if err := eg.Wait(); err != nil {
+		return normalizeError("close", f.entry.Name, err)
+	}
+	return nil
 }
 
 func (f *file) Seek(offset int64, whence int) (int64, error) {
@@ -89,7 +93,11 @@ func (f *file) Read(p []byte) (n int, err error) {
 		return 0, f.err
 	}
 
-	return f.readCloser.Read(p)
+	n, err = f.readCloser.Read(p)
+	if err != nil && err != io.EOF {
+		return n, normalizeError("read", f.entry.Name, err)
+	}
+	return n, err
 }
 
 type readCloser struct {
@@ -100,10 +108,16 @@ type readCloser struct {
 func (c *readCloser) Close() error {
 	eg := &errgroup.Group{}
 	eg.Go(func() error {
-		return c.Response.Close()
+		if err := c.Response.Close(); err != nil {
+			return fmt.Errorf("close FTP response: %w", err)
+		}
+		return nil
 	})
 	eg.Go(func() error {
-		return c.conn.Close()
+		if err := c.conn.Close(); err != nil {
+			return fmt.Errorf("close FTP connection: %w", err)
+		}
+		return nil
 	})
 	return eg.Wait()
 }
@@ -144,7 +158,11 @@ func (f *file) Write(p []byte) (n int, err error) {
 		return 0, f.err
 	}
 
-	return f.writeCloser.Write(p)
+	n, err = f.writeCloser.Write(p)
+	if err != nil {
+		return n, normalizeError("write", f.entry.Name, err)
+	}
+	return n, nil
 }
 
 type writeCloser struct {
@@ -155,13 +173,16 @@ type writeCloser struct {
 func (c *writeCloser) Close() error {
 	err := c.WriteCloser.Close()
 	c.wg.Wait()
-	return err
+	if err != nil {
+		return fmt.Errorf("close FTP write pipe: %w", err)
+	}
+	return nil
 }
 
 func (f *file) Readdir(count int) ([]os.FileInfo, error) {
 	conn, err := f.client.Conn(f.ctx)
 	if err != nil {
-		return nil, normalizeError("write", f.entry.Name, err)
+		return nil, normalizeError("readdir", f.entry.Name, err)
 	}
 	defer conn.Close()
 

@@ -1,6 +1,7 @@
 package client
 
 import (
+	"fmt"
 	"net/url"
 )
 
@@ -18,7 +19,7 @@ func (h *Href) MarshalText() ([]byte, error) {
 func (h *Href) UnmarshalText(b []byte) error {
 	u, err := url.Parse(string(b))
 	if err != nil {
-		return err
+		return fmt.Errorf("parse href %q: %w", string(b), err)
 	}
 	*h = Href(*u)
 	return nil

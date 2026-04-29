@@ -1,0 +1,41 @@
+# 列出 Go 工具链入口。
+[group('meta')]
+default:
+    @just --list --unsorted
+
+# 生成代码并整理依赖。
+[group('dep')]
+[no-cd]
+dep:
+    go mod tidy
+
+# 运行全部测试。
+[group('test')]
+[no-cd]
+test path='./...' *args:
+    go test {{ args }} -count=1 -failfast {{ path }}
+
+# 修复并格式化 Go 代码。
+[group('dev')]
+[no-cd]
+fmt path='./...':
+    go fix {{ path }}
+    go tool fmt {{ path }}
+
+# 更新直接依赖。
+[group('dev')]
+[no-cd]
+update path='./...':
+    go get -u {{ path }}
+
+# 运行仓库内代码生成。
+[group('dev')]
+[no-cd]
+gen path='./...':
+    go generate {{ path }}
+
+# 安装 agent skills
+[group('dev')]
+[no-cd]
+skills-install:
+    go tool skills-install

@@ -44,7 +44,7 @@ func (fs *fs) Mkdir(ctx context.Context, name string, perm os.FileMode) error {
 
 	f, err := fs.OpenFile(ctx, path.Clean(name)+"/", os.O_CREATE, perm)
 	if err != nil {
-		return err
+		return fmt.Errorf("open webdav dir %q: %w", name, err)
 	}
 	_ = f.Close()
 	return nil
@@ -54,23 +54,29 @@ func (fs *fs) RemoveAll(ctx context.Context, name string) error {
 	if name == "/" {
 		return fmt.Errorf("rm '/' not allow: %w", os.ErrPermission)
 	}
-	return fs.c.Delete(ctx, name)
+	if err := fs.c.Delete(ctx, name); err != nil {
+		return fmt.Errorf("delete webdav %q: %w", name, err)
+	}
+	return nil
 }
 
 func (fs *fs) Rename(ctx context.Context, oldName, newName string) error {
 	if newName == oldName {
 		return nil
 	}
-	return fs.c.Move(ctx, oldName, newName, false)
+	if err := fs.c.Move(ctx, oldName, newName, false); err != nil {
+		return fmt.Errorf("move webdav %q to %q: %w", oldName, newName, err)
+	}
+	return nil
 }
 
 func (fs *fs) Stat(ctx context.Context, name string) (os.FileInfo, error) {
 	ms, err := fs.c.PropFind(ctx, name, 0, client.FileInfoPropFind)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("propfind webdav %q: %w", name, err)
 	}
 
-	// If the client followed a redirect, the Href might be different from the request path
+	// 如果客户端跟随了重定向，Href 可能不同于请求路径。
 	if len(ms.Responses) != 1 {
 		return nil, fmt.Errorf("PROPFIND with Depth: 0 returned %d responses", len(ms.Responses))
 	}
@@ -84,7 +90,7 @@ func (fs *fs) Stat(ctx context.Context, name string) (os.FileInfo, error) {
 				Err:  os.ErrNotExist,
 			}
 		}
-		return nil, err
+		return nil, fmt.Errorf("webdav fileinfo %q: %w", name, err)
 	}
 
 	return info, nil
@@ -112,19 +118,19 @@ func (fs *fs) openDir(ctx context.Context, name string) (filesystem.File, error)
 		if os.IsNotExist(err) {
 			if parent := path.Dir(strings.TrimRight(name, "/")); parent != "/" {
 				if _, err := fs.Stat(ctx, parent); err != nil {
-					return nil, err
+					return nil, fmt.Errorf("stat parent dir %q: %w", parent, err)
 				}
 			}
 			if err := fs.c.MkCol(ctx, name); err != nil {
-				return nil, err
+				return nil, fmt.Errorf("mkcol webdav %q: %w", name, err)
 			}
 			fi, err := fs.Stat(ctx, name)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("stat created dir %q: %w", name, err)
 			}
 			return &file{node: fs.addNode(fi)}, nil
 		}
-		return nil, err
+		return nil, fmt.Errorf("stat webdav dir %q: %w", name, err)
 	}
 	if !fi.IsDir() {
 		return nil, &os.PathError{
@@ -137,11 +143,11 @@ func (fs *fs) openDir(ctx context.Context, name string) (filesystem.File, error)
 }
 
 func (fs *fs) openFile(ctx context.Context, name string, flag int) (filesystem.File, error) {
-	// check parent path when create
+	// 创建文件时检查父路径。
 	if flag&os.O_CREATE != 0 {
 		if parent := path.Dir(strings.TrimRight(name, "/")); parent != "/" {
 			if _, err := fs.Stat(ctx, parent); err != nil {
-				return nil, err
+				return nil, fmt.Errorf("stat parent dir %q: %w", parent, err)
 			}
 		}
 	}
@@ -156,13 +162,13 @@ func (fs *fs) openFile(ctx context.Context, name string, flag int) (filesystem.F
 	if flag&os.O_WRONLY != 0 || flag&os.O_RDWR != 0 {
 		w, err := fs.c.OpenWrite(context.Background(), f.Name())
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("open webdav %q for write: %w", f.Name(), err)
 		}
 		f.writer = w
 	} else {
 		ff, err := fs.c.Open(context.Background(), f.Name())
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("open webdav %q for read: %w", f.Name(), err)
 		}
 		f.file = ff
 	}

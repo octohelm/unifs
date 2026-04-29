@@ -1,6 +1,6 @@
 module: "github.com/octohelm/unifs@v0"
 language: {
-	version: "v0.9.0"
+	version: "v0.16.0"
 }
 deps: {
 	"github.com/octohelm/kubepkgspec@v0": {

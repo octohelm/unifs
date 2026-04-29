@@ -3,6 +3,7 @@ package ftp
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path"
 	"strings"
@@ -38,7 +39,7 @@ func (f *fs) OpenFile(ctx context.Context, name string, flag int, perm os.FileMo
 	createWhenNotExists := flag&os.O_CREATE != 0
 
 	if createWhenNotExists {
-		// ensure parent exists
+		// 创建前确认父目录存在。
 		if strings.Contains(name, "/") {
 			_, err := c.GetEntry(path.Dir(name))
 			if err != nil {
@@ -75,8 +76,7 @@ func (f *fs) OpenFile(ctx context.Context, name string, flag int, perm os.FileMo
 		}
 	}
 
-	// ftp entry will return the full path
-	// we need to set the path as the virtual name
+	// FTP entry 会返回完整路径，需要把路径设为虚拟名称。
 	ftpEntry.Name = name
 
 	return &file{
@@ -128,6 +128,8 @@ func (f *fs) RemoveAll(ctx context.Context, name string) error {
 	return nil
 }
 
+var _ = fmt.Errorf
+
 func (f *fs) Rename(ctx context.Context, oldName, newName string) error {
 	c, err := f.c.Conn(ctx)
 	if err != nil {
@@ -144,7 +146,7 @@ func (f *fs) Rename(ctx context.Context, oldName, newName string) error {
 func (f *fs) Stat(ctx context.Context, name string) (os.FileInfo, error) {
 	c, err := f.c.Conn(ctx)
 	if err != nil {
-		return nil, err
+		return nil, normalizeError("stat", name, err)
 	}
 	defer c.Close()
 
@@ -159,7 +161,7 @@ func (f *fs) Stat(ctx context.Context, name string) (os.FileInfo, error) {
 func (f *fs) Mkdir(ctx context.Context, name string, perm os.FileMode) error {
 	c, err := f.c.Conn(ctx)
 	if err != nil {
-		return err
+		return normalizeError("mkdir", name, err)
 	}
 	defer c.Close()
 

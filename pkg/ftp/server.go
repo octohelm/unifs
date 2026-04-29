@@ -31,6 +31,7 @@ type Server struct {
 	ftp *ftpserver.FtpServer
 }
 
+// SetDefaults 填充默认监听地址和公开主机。
 func (s *Server) SetDefaults() {
 	if s.Addr == "" {
 		s.Addr = "0.0.0.0:2121"
@@ -44,6 +45,7 @@ func (s *Server) SetDefaults() {
 	}
 }
 
+// Serve 启动 FTP 服务。
 func (s *Server) Serve(ctx context.Context) error {
 	if s.ftp == nil {
 		d := &driver{
@@ -60,14 +62,20 @@ func (s *Server) Serve(ctx context.Context) error {
 
 		logr.FromContext(ctx).Info(fmt.Sprintf("ftp serve on %s", s.Addr))
 
-		return s.ftp.ListenAndServe()
+		if err := s.ftp.ListenAndServe(); err != nil {
+			return fmt.Errorf("listen FTP server %q: %w", s.Addr, err)
+		}
+		return nil
 	}
 	return nil
 }
 
+// Shutdown 在 FTP 服务运行时停止它。
 func (s *Server) Shutdown(ctx context.Context) error {
 	if s.ftp != nil {
-		return s.ftp.Stop()
+		if err := s.ftp.Stop(); err != nil {
+			return fmt.Errorf("stop FTP server: %w", err)
+		}
 	}
 	return nil
 }
@@ -103,6 +111,7 @@ type ClientDriver struct {
 	afero.Fs
 }
 
+// ErrTimeout 表示优雅等待超过超时时间。
 var ErrTimeout = errors.New("timeout")
 
 func (s *driver) ClientConnected(cc ftpserver.ClientContext) (string, error) {
@@ -117,7 +126,7 @@ func (s *driver) ClientConnected(cc ftpserver.ClientContext) (string, error) {
 	return "ftpserver", nil
 }
 
-// ClientDisconnected is called when the user disconnects, even if he never authenticated
+// ClientDisconnected 在用户断开连接时调用，即使用户从未认证。
 func (s *driver) ClientDisconnected(cc ftpserver.ClientContext) {
 	s.nbClients.Add(-1)
 

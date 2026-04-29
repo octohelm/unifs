@@ -35,18 +35,20 @@ func (fsys *fs) Mkdir(ctx context.Context, name string, perm os.FileMode) error 
 	}
 	f, err := fsys.OpenFile(ctx, fmt.Sprintf("%s/", path.Clean(name)), os.O_CREATE, perm)
 	if err != nil {
-		return err
+		return fmt.Errorf("open s3 dir %q: %w", name, err)
 	}
-	_ = f.Close()
+	if err := f.Close(); err != nil {
+		return fmt.Errorf("close s3 dir %q: %w", name, err)
+	}
 	return nil
 }
 
 func (fsys *fs) OpenFile(ctx context.Context, name string, flag int, perm os.FileMode) (filesystem.File, error) {
-	// Appending is not supported by S3. It's do-able though by:
-	// - Copying the existing file to a new place (for example $file.previous)
-	// - Writing a new file, streaming the content of the previous file in it
-	// - Writing the data you want to append
-	// Quite network intensive, if used in abondance this would lead to terrible performances.
+	// S3 不支持追加写。理论上可以通过以下步骤模拟：
+	// - 将现有文件复制到新位置，例如 $file.previous
+	// - 写入新文件，并把旧文件内容流式写入其中
+	// - 写入需要追加的数据
+	// 该方式网络开销很高，大量使用会导致性能很差。
 	if flag&os.O_APPEND != 0 {
 		return nil, os.ErrPermission
 	}
@@ -65,7 +67,7 @@ func (fsys *fs) OpenFile(ctx context.Context, name string, flag int, perm os.Fil
 
 	f, err := openFileForRead(ctx, fsys, name, flag)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("open s3 object %q for read: %w", name, err)
 	}
 	return f, nil
 }
@@ -77,10 +79,10 @@ func (fsys *fs) Rename(ctx context.Context, oldName, newName string) error {
 
 	info, err := fsys.Stat(ctx, oldName)
 	if err != nil {
-		return err
+		return fmt.Errorf("stat rename source %q: %w", oldName, err)
 	}
 
-	//  /x could not mv to its child path like /x/a/b/x
+	// /x 不能移动到 /x/a/b/x 这类子路径。
 	if oldName == "/" || strings.HasPrefix(newName, oldName+"/") {
 		return &os.LinkError{
 			Op:  "rename",
@@ -99,22 +101,25 @@ func (fsys *fs) Rename(ctx context.Context, oldName, newName string) error {
 
 		fileInfos, err := f.Readdir(0)
 		if err != nil {
-			return err
+			return fmt.Errorf("readdir rename source %q: %w", oldName, err)
 		}
 
 		if err := fsys.Mkdir(ctx, newName, os.ModePerm); err != nil {
-			return err
+			return fmt.Errorf("mkdir rename destination %q: %w", newName, err)
 		}
 
 		for _, fi := range fileInfos {
 			fullPath := path.Join(f.Name(), fi.Name())
 			destFullPath := path.Join(newName, fi.Name())
 			if err := fsys.Rename(ctx, fullPath, destFullPath); err != nil {
-				return err
+				return fmt.Errorf("rename child %q to %q: %w", fullPath, destFullPath, err)
 			}
 		}
 
-		return fsys.forceRemove(ctx, oldName, true)
+		if err := fsys.forceRemove(ctx, oldName, true); err != nil {
+			return fmt.Errorf("remove renamed source dir %q: %w", oldName, err)
+		}
+		return nil
 	}
 
 	_, err = fsys.s3Client.CopyObject(
@@ -129,10 +134,13 @@ func (fsys *fs) Rename(ctx context.Context, oldName, newName string) error {
 		},
 	)
 	if err != nil {
-		return fmt.Errorf("copy failed: %w", err)
+		return fmt.Errorf("copy s3 object %q to %q: %w", oldName, newName, err)
 	}
 
-	return fsys.forceRemove(ctx, oldName, false)
+	if err := fsys.forceRemove(ctx, oldName, false); err != nil {
+		return fmt.Errorf("remove renamed source file %q: %w", oldName, err)
+	}
+	return nil
 }
 
 func (fsys *fs) RemoveAll(ctx context.Context, name string) error {
@@ -148,7 +156,7 @@ func (fsys *fs) RemoveAll(ctx context.Context, name string) error {
 
 	fileInfos, err := f.Readdir(0)
 	if err != nil {
-		return err
+		return fmt.Errorf("readdir remove %q: %w", name, err)
 	}
 
 	for _, fi := range fileInfos {
@@ -156,17 +164,17 @@ func (fsys *fs) RemoveAll(ctx context.Context, name string) error {
 
 		if fi.IsDir() {
 			if err := fsys.RemoveAll(ctx, fullPath); err != nil {
-				return err
+				return fmt.Errorf("remove child dir %q: %w", fullPath, err)
 			}
 		} else {
 			if err := fsys.forceRemove(ctx, fullPath, false); err != nil {
-				return err
+				return fmt.Errorf("remove child file %q: %w", fullPath, err)
 			}
 		}
 	}
 
 	if err := fsys.forceRemove(ctx, path.Clean(f.Name())+"/", true); err != nil {
-		return err
+		return fmt.Errorf("remove dir marker %q: %w", name, err)
 	}
 
 	return nil
@@ -177,13 +185,16 @@ func (fsys *fs) forceRemove(ctx context.Context, name string, isDir bool) error 
 		if err := fsys.s3Client.RemoveObject(ctx, fsys.bucket, fsys.path(path.Join(name, dirHolder)), minio.RemoveObjectOptions{
 			ForceDelete: true,
 		}); err != nil {
-			return err
+			return fmt.Errorf("remove s3 dir holder %q: %w", path.Join(name, dirHolder), err)
 		}
 	}
 
-	return fsys.s3Client.RemoveObject(ctx, fsys.bucket, fsys.path(name), minio.RemoveObjectOptions{
+	if err := fsys.s3Client.RemoveObject(ctx, fsys.bucket, fsys.path(name), minio.RemoveObjectOptions{
 		ForceDelete: true,
-	})
+	}); err != nil {
+		return fmt.Errorf("remove s3 object %q: %w", name, err)
+	}
+	return nil
 }
 
 func (fsys *fs) path(name string) (s string) {

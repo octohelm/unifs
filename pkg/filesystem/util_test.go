@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	testingx "github.com/octohelm/x/testing"
+	. "github.com/octohelm/x/testing/v2"
 
 	"github.com/octohelm/unifs/pkg/filesystem"
 	"github.com/octohelm/unifs/pkg/filesystem/local"
@@ -18,6 +18,10 @@ func TestMkdirAll(t *testing.T) {
 	})
 
 	fs := local.NewFS(tmp)
-	err := filesystem.MkdirAll(context.Background(), fs, "path/to/deep")
-	testingx.Expect(t, err, testingx.Be[error](nil))
+
+	Then(t, "创建所有缺失父目录",
+		ExpectMust(func() error {
+			return filesystem.MkdirAll(context.Background(), fs, "path/to/deep")
+		}),
+	)
 }

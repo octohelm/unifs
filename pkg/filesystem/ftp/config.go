@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/base64"
+	"fmt"
 	"net/url"
 	"strconv"
 	"sync"
@@ -20,13 +21,17 @@ type TLS struct {
 func (x TLS) Certificate() (tls.Certificate, error) {
 	cert, err := base64.StdEncoding.DecodeString(x.CertData)
 	if err != nil {
-		return tls.Certificate{}, err
+		return tls.Certificate{}, fmt.Errorf("decode TLS cert data: %w", err)
 	}
 	key, err := base64.StdEncoding.DecodeString(x.KeyData)
 	if err != nil {
-		return tls.Certificate{}, err
+		return tls.Certificate{}, fmt.Errorf("decode TLS key data: %w", err)
 	}
-	return tls.X509KeyPair(cert, key)
+	certificate, err := tls.X509KeyPair(cert, key)
+	if err != nil {
+		return tls.Certificate{}, fmt.Errorf("parse TLS key pair: %w", err)
+	}
+	return certificate, nil
 }
 
 type Config struct {
@@ -59,7 +64,7 @@ func (c *Config) Conn(ctx context.Context, args ...any) (Conn, error) {
 		if t := c.Endpoint.Extra.Get("timeout"); t != "" {
 			d, err := time.ParseDuration(t)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("parse FTP timeout %q: %w", t, err)
 			}
 			p.ConnectTimeout = d
 		}
@@ -67,7 +72,7 @@ func (c *Config) Conn(ctx context.Context, args ...any) (Conn, error) {
 		if t := c.Endpoint.Extra.Get("enableDebug"); t != "" {
 			d, err := strconv.ParseBool(t)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("parse FTP enableDebug %q: %w", t, err)
 			}
 			p.EnableDebug = d
 		}
@@ -78,7 +83,7 @@ func (c *Config) Conn(ctx context.Context, args ...any) (Conn, error) {
 			if t := c.Endpoint.Extra.Get("insecureSkipVerify"); t != "" {
 				d, err := strconv.ParseBool(t)
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("parse FTP insecureSkipVerify %q: %w", t, err)
 				}
 				p.TLSConfig.InsecureSkipVerify = d
 			}
@@ -86,7 +91,7 @@ func (c *Config) Conn(ctx context.Context, args ...any) (Conn, error) {
 			if t := c.Endpoint.Extra.Get("explicitTLS"); t != "" {
 				d, err := strconv.ParseBool(t)
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("parse FTP explicitTLS %q: %w", t, err)
 				}
 				p.ExplicitTLS = d
 			}

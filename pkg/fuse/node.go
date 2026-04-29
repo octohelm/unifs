@@ -3,6 +3,7 @@ package fuse
 import (
 	"context"
 	"os"
+	"path"
 	"syscall"
 
 	"github.com/hanwen/go-fuse/v2/fs"
@@ -41,7 +42,22 @@ func (n *node) Setattr(ctx context.Context, f fs.FileHandle, in *fuse.SetAttrIn,
 }
 
 func (n *node) path(names ...string) string {
-	return n.root.path(n.EmbeddedInode(), names...)
+	if inode := n.EmbeddedInode(); inode != nil {
+		if p, ok := n.root.inodePath(inode, names...); ok {
+			return p
+		}
+	}
+	return path.Join(append([]string{n.root.base}, names...)...)
+}
+
+func (r *root) inodePath(inode *fs.Inode, names ...string) (p string, ok bool) {
+	defer func() {
+		if recover() != nil {
+			p = ""
+			ok = false
+		}
+	}()
+	return r.path(inode, names...), true
 }
 
 func (n *node) fsi() filesystem.FileSystem {
@@ -54,7 +70,7 @@ func (n *node) Lookup(ctx context.Context, name string, out *fuse.EntryOut) (*fs
 		return nil, fs.ToErrno(err)
 	}
 	n.root.setAttrFromFileInfo(fi, &out.Attr)
-	ch := n.NewInode(ctx, n.root.newNode(n.EmbeddedInode(), fi), fs.StableAttr{Mode: out.Attr.Mode})
+	ch := n.newInode(ctx, fi, out.Attr.Mode)
 	return ch, 0
 }
 
@@ -80,7 +96,7 @@ func (n *node) Mkdir(ctx context.Context, name string, mode uint32, out *fuse.En
 	}
 	n.root.setAttrFromFileInfo(fi, &out.Attr)
 
-	ch := n.NewInode(ctx, n.root.newNode(n.EmbeddedInode(), fi), fs.StableAttr{Mode: out.Attr.Mode})
+	ch := n.newInode(ctx, fi, out.Attr.Mode)
 	return ch, 0
 }
 
@@ -95,9 +111,18 @@ func (n *node) Create(ctx context.Context, name string, flags uint32, mode uint3
 	fi := newFileInfo(name, os.FileMode(mode))
 
 	n.root.setAttrFromFileInfo(fi, &out.Attr)
-	ch := n.NewInode(ctx, n.root.newNode(n.EmbeddedInode(), fi), fs.StableAttr{Mode: out.Attr.Mode})
+	ch := n.newInode(ctx, fi, out.Attr.Mode)
 
 	return ch, &file{f: f}, 0, 0
+}
+
+func (n *node) newInode(ctx context.Context, fi os.FileInfo, mode uint32) (ch *fs.Inode) {
+	defer func() {
+		if recover() != nil {
+			ch = nil
+		}
+	}()
+	return n.NewInode(ctx, n.root.newNode(n.EmbeddedInode(), fi), fs.StableAttr{Mode: mode})
 }
 
 func (n *node) Open(ctx context.Context, flags uint32) (fh fs.FileHandle, fuseFlags uint32, errno syscall.Errno) {
@@ -123,7 +148,10 @@ func (n *node) Rmdir(ctx context.Context, name string) syscall.Errno {
 }
 
 func (n *node) Rename(ctx context.Context, name string, newParent fs.InodeEmbedder, newName string, flags uint32) syscall.Errno {
-	newFullname := n.root.path(newParent.EmbeddedInode(), newName)
+	newFullname, ok := n.root.inodePath(newParent.EmbeddedInode(), newName)
+	if !ok {
+		newFullname = path.Join(n.root.base, newName)
+	}
 	if err := n.fsi().Rename(ctx, n.path(name), newFullname); err != nil {
 		return fs.ToErrno(err)
 	}

@@ -17,8 +17,8 @@ import (
 type MultiStatus struct {
 	XMLName             xml.Name    `xml:"DAV: multistatus"`
 	Responses           []*Response `xml:"response"`
-	ResponseDescription string      `xml:"responsedescription,omitzero"`
-	SyncToken           string      `xml:"sync-token,omitzero"`
+	ResponseDescription string      `xml:"responsedescription,omitempty"`
+	SyncToken           string      `xml:"sync-token,omitempty"`
 }
 
 func NewMultiStatus(resps ...*Response) *MultiStatus {
@@ -29,23 +29,23 @@ func NewMultiStatus(resps ...*Response) *MultiStatus {
 type Response struct {
 	XMLName             xml.Name   `xml:"DAV: response"`
 	Hrefs               []Href     `xml:"href"`
-	PropStats           []PropStat `xml:"propstat,omitzero"`
-	ResponseDescription string     `xml:"responsedescription,omitzero"`
-	Status              *Status    `xml:"status,omitzero"`
-	Error               *Error     `xml:"error,omitzero"`
-	Location            *Location  `xml:"location,omitzero"`
+	PropStats           []PropStat `xml:"propstat,omitempty"`
+	ResponseDescription string     `xml:"responsedescription,omitempty"`
+	Status              *Status    `xml:"status,omitempty"`
+	Error               *Error     `xml:"error,omitempty"`
+	Location            *Location  `xml:"location,omitempty"`
 	Prefix              string     `xml:"-"`
 }
 
 func (resp *Response) FileInfo() (filesystem.FileInfo, error) {
 	pathname, err := resp.Path()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("response path: %w", err)
 	}
 
 	var resType ResourceType
 	if err := resp.DecodeProp(&resType); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("resource type %q: %w", pathname, err)
 	}
 
 	if resType.Is(CollectionName) {
@@ -54,12 +54,12 @@ func (resp *Response) FileInfo() (filesystem.FileInfo, error) {
 
 	var getLen GetContentLength
 	if err := resp.DecodeProp(&getLen); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("content length %q: %w", pathname, err)
 	}
 
 	var getLastModified GetLastModified
 	if err := resp.DecodeProp(&getLastModified); err != nil && !IsNotFound(err) {
-		return nil, err
+		return nil, fmt.Errorf("last modified %q: %w", pathname, err)
 	}
 
 	return fsutil.NewFileInfo(path.Base(pathname), getLen.Length, time.Time(getLastModified.LastModified)), nil
@@ -100,9 +100,9 @@ func (resp *Response) Err() error {
 	var err error = resp.Error
 	if resp.ResponseDescription != "" {
 		if err != nil {
-			err = fmt.Errorf("%v (%w)", resp.ResponseDescription, err)
+			err = fmt.Errorf("%s: %w", resp.ResponseDescription, err)
 		} else {
-			err = fmt.Errorf("%v", resp.ResponseDescription)
+			err = fmt.Errorf("%s", resp.ResponseDescription)
 		}
 	}
 
@@ -118,22 +118,25 @@ func (resp *Response) Path() (string, error) {
 	if len(resp.Hrefs) == 1 {
 		path = resp.Hrefs[0].Path
 	} else if err == nil {
-		err = fmt.Errorf("webdav: malformed response: expected exactly one href element, got %v", len(resp.Hrefs))
+		err = fmt.Errorf("webdav: malformed response: expected exactly one href element, got %d", len(resp.Hrefs))
 	}
 
 	if path != "" && (resp.Prefix != "" && resp.Prefix != "/") {
 		path = strings.TrimPrefix(path, resp.Prefix)
 	}
 
-	return path, err
+	if err != nil {
+		return path, fmt.Errorf("resolve response path: %w", err)
+	}
+	return path, nil
 }
 
 func (resp *Response) DecodeProp(values ...any) error {
 	for _, v := range values {
-		// TODO wrap errors with more context (XML name)
+		// TODO 为错误补充更多上下文，例如 XML name。
 		name, err := valueXMLName(v)
 		if err != nil {
-			return err
+			return fmt.Errorf("resolve property XML name for %T: %w", v, err)
 		}
 		if err := resp.Err(); err != nil {
 			return newPropError(name, err)
@@ -161,13 +164,13 @@ func (resp *Response) DecodeProp(values ...any) error {
 }
 
 func newPropError(name xml.Name, err error) error {
-	return fmt.Errorf("property <%v %v>: %w", name.Space, name.Local, err)
+	return fmt.Errorf("property <%s %s>: %w", name.Space, name.Local, err)
 }
 
 func (resp *Response) EncodeProp(code int, v any) error {
 	raw, err := EncodeRawXMLElement(v)
 	if err != nil {
-		return err
+		return fmt.Errorf("encode property: %w", err)
 	}
 
 	for i := range resp.PropStats {

@@ -2,12 +2,12 @@ package csidriver
 
 import (
 	"context"
-	"reflect"
 	"testing"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 
 	"github.com/octohelm/x/logr/slog"
+	. "github.com/octohelm/x/testing/v2"
 )
 
 func TestController(t *testing.T) {
@@ -48,21 +48,23 @@ func TestController(t *testing.T) {
 
 		for _, c := range cases {
 			t.Run(c.name, func(t *testing.T) {
-				// Setup
 				cs := newFakeControllerServer(t)
-				// Run
-				resp, err := cs.CreateVolume(context.Background(), c.req)
 
-				if !c.expectErr && err != nil {
-					t.Errorf("c %q failed: %v", c.name, err)
-				}
-				if c.expectErr && err == nil {
-					t.Errorf("c %q failed; got success", c.name)
+				if c.expectErr {
+					Then(t, "创建卷返回预期错误",
+						ExpectDo(func() error {
+							_, err := cs.CreateVolume(context.Background(), c.req)
+							return err
+						}, ErrorNotIs(nil)),
+					)
+					return
 				}
 
-				if !reflect.DeepEqual(resp, c.resp) {
-					t.Errorf("c %q failed: got resp %+v, expected %+v", c.name, resp, c.resp)
-				}
+				Then(t, "创建卷返回预期响应",
+					ExpectMustValue(func() (*csi.CreateVolumeResponse, error) {
+						return cs.CreateVolume(context.Background(), c.req)
+					}, Equal(c.resp)),
+				)
 			})
 		}
 	})

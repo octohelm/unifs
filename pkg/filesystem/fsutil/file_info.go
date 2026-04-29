@@ -7,6 +7,7 @@ import (
 	"github.com/octohelm/unifs/pkg/filesystem"
 )
 
+// NewDirFileInfo 返回目录的 FileInfo。
 func NewDirFileInfo(name string) filesystem.FileInfo {
 	return &fileInfo{
 		name:      name,
@@ -15,6 +16,7 @@ func NewDirFileInfo(name string) filesystem.FileInfo {
 	}
 }
 
+// NewFileInfo 返回普通文件的 FileInfo。
 func NewFileInfo(name string, size int64, modTime time.Time) filesystem.FileInfo {
 	return &fileInfo{
 		name:    name,

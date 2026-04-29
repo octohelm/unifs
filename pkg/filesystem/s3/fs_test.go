@@ -11,9 +11,9 @@ import (
 
 	"github.com/johannesboyne/gofakes3"
 	"github.com/johannesboyne/gofakes3/backend/s3mem"
-
 	"github.com/octohelm/courier/pkg/courierhttp"
-	testingx "github.com/octohelm/x/testing"
+
+	. "github.com/octohelm/x/testing/v2"
 
 	"github.com/octohelm/unifs/pkg/filesystem"
 	"github.com/octohelm/unifs/pkg/filesystem/testutil"
@@ -29,6 +29,10 @@ func TestS3Fs(t *testing.T) {
 		testutil.TestFullFS(t, newFakeS3FS(t))
 	})
 
+	t.Run("Standard", func(t *testing.T) {
+		testutil.TestStandardFS(t, newFakeS3FS(t))
+	})
+
 	t.Run("Bench", func(t *testing.T) {
 		b := &testutil.Benchmark{}
 		b.SetDefaults()
@@ -38,17 +42,23 @@ func TestS3Fs(t *testing.T) {
 
 func TestS3WithPresignAs(t *testing.T) {
 	fsys := newFakeS3FS(t, forPresign("https://rw:fake@x.io"))
-	err := fsys.Mkdir(context.Background(), "/x", os.ModePerm|os.ModeDir)
-	testingx.Expect(t, err, testingx.BeNil[error]())
+	Then(t, "准备 presign 文件",
+		ExpectMust(func() error {
+			return fsys.Mkdir(context.Background(), "/x", os.ModePerm|os.ModeDir)
+		}),
+		ExpectMust(func() error {
+			return filesystem.Write(context.Background(), fsys, "x.txt", []byte("123"))
+		}),
+	)
 
-	err = filesystem.Write(context.Background(), fsys, "x.txt", []byte("123"))
-	testingx.Expect(t, err, testingx.BeNil[error]())
-
-	f, err := fsys.OpenFile(context.Background(), "x.txt", os.O_RDONLY, os.ModePerm)
-	testingx.Expect(t, err, testingx.BeNil[error]())
+	f := MustValue(t, func() (filesystem.File, error) {
+		return fsys.OpenFile(context.Background(), "x.txt", os.O_RDONLY, os.ModePerm)
+	})
 	defer f.Close()
 
-	testingx.Expect(t, f.(courierhttp.RedirectDescriber).Location().Host, testingx.Be("test.x.io"))
+	Then(t, "presignAs 覆盖重定向主机",
+		Expect(f.(courierhttp.RedirectDescriber).Location().Host, Equal("test.x.io")),
+	)
 }
 
 func forPresign(endpoint string) func(c *Config) {
@@ -68,10 +78,9 @@ func newFakeS3FS(t *testing.T, opts ...func(c *Config)) filesystem.FileSystem {
 		e = svc.URL + fmt.Sprintf("/test?insecure=true")
 	}
 
-	endpoint, err := strfmt.ParseEndpoint(e)
-	if err != nil {
-		t.Fatal(err)
-	}
+	endpoint := MustValue(t, func() (*strfmt.Endpoint, error) {
+		return strfmt.ParseEndpoint(e)
+	})
 
 	endpoint.Path = path.Clean(fmt.Sprintf("%s/_tmp_%d", endpoint.Path, time.Now().UnixNano()))
 
@@ -85,10 +94,9 @@ func newFakeS3FS(t *testing.T, opts ...func(c *Config)) filesystem.FileSystem {
 
 	t.Log(conf.Endpoint)
 
-	fsys, err := (conf).AsFileSystem(context.Background())
-	if err != nil {
-		t.Fatal(err)
-	}
+	fsys := MustValue(t, func() (filesystem.FileSystem, error) {
+		return conf.AsFileSystem(context.Background())
+	})
 
 	return fsys
 }

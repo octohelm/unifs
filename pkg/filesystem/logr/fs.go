@@ -9,6 +9,7 @@ import (
 	"github.com/octohelm/unifs/pkg/filesystem"
 )
 
+// Wrap 返回记录每次文件系统操作的 FileSystem。
 func Wrap(fsys filesystem.FileSystem, logger logr.Logger) filesystem.FileSystem {
 	return &fs{fs: fsys, logger: logger}
 }

@@ -1,3 +1,6 @@
+//go:generate go tool gen .
+
+// Package main 提供 unifs 示例命令的 CLI 装配入口。
 package main
 
 import (

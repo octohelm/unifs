@@ -3,6 +3,7 @@ package tar
 import (
 	"archive/tar"
 	"context"
+	"fmt"
 	"io"
 	"io/fs"
 	"os"
@@ -63,17 +64,17 @@ func (t *tarExporter) ExportAsTar(ctx context.Context, w io.Writer) error {
 
 		rel, err := path.Rel(base, pathname, path.Unix)
 		if err != nil {
-			return err
+			return fmt.Errorf("resolve tar path %q relative to %q: %w", pathname, base, err)
 		}
 
 		info, err := d.Info()
 		if err != nil {
-			return err
+			return fmt.Errorf("stat tar entry %q: %w", pathname, err)
 		}
 
 		f, err := t.fsys.OpenFile(ctx, pathname, os.O_RDONLY, os.ModePerm)
 		if err != nil {
-			return err
+			return fmt.Errorf("open %q for tar export: %w", pathname, err)
 		}
 		defer f.Close()
 
@@ -89,10 +90,10 @@ func (t *tarExporter) ExportAsTar(ctx context.Context, w io.Writer) error {
 func (t *tarExporter) writeToTar(tw *tar.Writer, header tar.Header, r io.Reader) error {
 	header.Mode = 0o644
 	if err := tw.WriteHeader(&header); err != nil {
-		return err
+		return fmt.Errorf("write tar header %q: %w", header.Name, err)
 	}
 	if _, err := io.CopyN(tw, r, header.Size); err != nil {
-		return err
+		return fmt.Errorf("write tar body %q: %w", header.Name, err)
 	}
 	return nil
 }

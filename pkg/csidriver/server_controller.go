@@ -3,6 +3,7 @@ package csidriver
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"google.golang.org/grpc/codes"
@@ -51,7 +52,7 @@ func (c *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVolu
 
 	v, err := newVolume(name, req.GetCapacityRange().GetRequiredBytes(), req.GetSecrets(), parameters)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("create volume %q: %w", name, err)
 	}
 
 	return &csi.CreateVolumeResponse{
@@ -109,7 +110,7 @@ func (c *controllerServer) GetCapacity(ctx context.Context, req *csi.GetCapacity
 	return nil, status.Error(codes.Unimplemented, "")
 }
 
-// ListVolumes return all available volumes
+// ListVolumes 返回所有可用卷。
 func (c *controllerServer) ListVolumes(ctx context.Context, req *csi.ListVolumesRequest) (*csi.ListVolumesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "")
 }

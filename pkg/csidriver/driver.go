@@ -77,17 +77,20 @@ func (d *Driver) Init(ctx context.Context) error {
 func (d *Driver) Serve(ctx context.Context) error {
 	scheme, addr, err := ParseEndpoint(d.Endpoint)
 	if err != nil {
-		return err
+		return fmt.Errorf("parse CSI endpoint %q: %w", d.Endpoint, err)
 	}
 
 	listener, err := net.Listen(scheme, addr)
 	if err != nil {
-		return err
+		return fmt.Errorf("listen CSI endpoint %s://%s: %w", scheme, addr, err)
 	}
 
 	logr.FromContext(ctx).Info(fmt.Sprintf("Listening for connections on address: %s", listener.Addr()))
 
-	return d.svc.Serve(listener)
+	if err := d.svc.Serve(listener); err != nil {
+		return fmt.Errorf("serve CSI endpoint %s://%s: %w", scheme, addr, err)
+	}
+	return nil
 }
 
 func (d *Driver) Shutdown(ctx context.Context) error {
@@ -146,7 +149,7 @@ func newVolume(name string, size int64, secrets map[string]string, params map[st
 		case backend:
 			e, err := strfmt.ParseEndpoint(v)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("parse volume backend %q: %w", v, err)
 			}
 
 			vol.scheme = e.Scheme

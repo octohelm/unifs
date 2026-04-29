@@ -22,7 +22,7 @@ func init() {
 
 var _ configuration.Server = &WebDAV{}
 
-// Serve Webdav as fuse fs
+// WebDAV 启动 WebDAV 服务。
 type WebDAV struct {
 	cli.C
 	Otel otel.Otel

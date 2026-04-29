@@ -10,8 +10,11 @@ import (
 
 	"golang.org/x/net/webdav"
 
+	. "github.com/octohelm/x/testing/v2"
+
 	"github.com/octohelm/unifs/pkg/filesystem"
 	"github.com/octohelm/unifs/pkg/filesystem/testutil"
+	clientpkg "github.com/octohelm/unifs/pkg/filesystem/webdav/client"
 	"github.com/octohelm/unifs/pkg/strfmt"
 )
 
@@ -22,6 +25,10 @@ func TestWebdavFs(t *testing.T) {
 
 	t.Run("Full", func(t *testing.T) {
 		testutil.TestFullFS(t, newWebdavFS(t, true))
+	})
+
+	t.Run("Standard", func(t *testing.T) {
+		testutil.TestStandardFS(t, newWebdavFS(t, true))
 	})
 
 	t.Run("Bench", func(t *testing.T) {
@@ -38,10 +45,9 @@ func newWebdavFS(t *testing.T, debug bool) filesystem.FileSystem {
 		e = svc.URL + fmt.Sprintf("?insecure=true")
 	}
 
-	endpoint, err := strfmt.ParseEndpoint(e)
-	if err != nil {
-		t.Fatal(err)
-	}
+	endpoint := MustValue(t, func() (*strfmt.Endpoint, error) {
+		return strfmt.ParseEndpoint(e)
+	})
 
 	conf := &Config{
 		Endpoint: *endpoint,
@@ -49,10 +55,9 @@ func newWebdavFS(t *testing.T, debug bool) filesystem.FileSystem {
 
 	t.Log(conf.Endpoint)
 
-	c, err := (conf).Client(context.Background())
-	if err != nil {
-		t.Fatal(err)
-	}
+	c := MustValue(t, func() (clientpkg.Client, error) {
+		return conf.Client(context.Background())
+	})
 
 	return NewFS(c)
 }

@@ -6,7 +6,7 @@ import (
 	"path"
 	"testing"
 
-	testingx "github.com/octohelm/x/testing"
+	. "github.com/octohelm/x/testing/v2"
 
 	"github.com/octohelm/unifs/pkg/filesystem/local"
 )
@@ -23,24 +23,35 @@ func TestWrite(t *testing.T) {
 	t.Run("could write as tar", func(t *testing.T) {
 		tarFile := path.Join(tmpDir, "x.tar")
 
-		f, err := os.OpenFile(tarFile, os.O_RDWR|os.O_TRUNC|os.O_CREATE, os.ModePerm)
-		testingx.Expect(t, err, testingx.BeNil[error]())
+		f := MustValue(t, func() (*os.File, error) {
+			return os.OpenFile(tarFile, os.O_RDWR|os.O_TRUNC|os.O_CREATE, os.ModePerm)
+		})
 
-		err = From(fs, WithBase("testdata/src")).ExportAsTar(context.Background(), f)
-		testingx.Expect(t, err, testingx.BeNil[error]())
+		Then(t, "导出 tar 成功",
+			ExpectMust(func() error {
+				return From(fs, WithBase("testdata/src")).ExportAsTar(context.Background(), f)
+			}),
+		)
 
 		_ = f.Close()
 
 		t.Run("then should import", func(t *testing.T) {
-			f, err := os.OpenFile(tarFile, os.O_RDONLY, os.ModePerm)
-			testingx.Expect(t, err, testingx.BeNil[error]())
+			f := MustValue(t, func() (*os.File, error) {
+				return os.OpenFile(tarFile, os.O_RDONLY, os.ModePerm)
+			})
 			defer f.Close()
 
 			i := To(fs, WithDest("testdata/dest"))
-			testingx.Expect(t, err, testingx.BeNil[error]())
 
-			err = i.ImportFrom(context.Background(), f)
-			testingx.Expect(t, err, testingx.BeNil[error]())
+			Then(t, "从 tar 导入成功",
+				ExpectMust(func() error {
+					return i.ImportFrom(context.Background(), f)
+				}),
+			)
 		})
 	})
+}
+
+func TestWithImport(t *testing.T) {
+	_ = From(local.NewFS("."), WithImport("testdata/src"))
 }

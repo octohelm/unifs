@@ -2,6 +2,7 @@ package webdav
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -25,18 +26,18 @@ func (f *file) c() client.Client {
 func (f *file) Name() string { return f.node.name }
 
 func (f *file) Readdir(n int) ([]os.FileInfo, error) {
-	// ListObjects treats leading slashes as part of the directory name
-	// It also needs a trailing slash to list contents of a directory.
+	// PROPFIND 会把前导斜杠视为目录名的一部分；
+	// 列出目录内容时也需要尾随斜杠。
 	name := strings.TrimPrefix(f.Name(), "/")
 
-	// For the root of the bucket, we need to remove any prefix
+	// 对根目录，需要移除所有 prefix。
 	if name != "" && !strings.HasSuffix(name, "/") {
 		name += "/"
 	}
 
 	ms, err := f.c().PropFind(context.Background(), name, 1, client.FileInfoPropFind)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("propfind %q: %w", name, err)
 	}
 
 	var fileInfos []os.FileInfo
@@ -50,16 +51,18 @@ func (f *file) Readdir(n int) ([]os.FileInfo, error) {
 	for _, resp := range ms.Responses {
 		p, err := resp.Path()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("response path: %w", err)
 		}
 
-		if p == f.Name() || (p == f.Name()+"/") {
+		normalizedPath := strings.Trim(strings.TrimPrefix(p, "/"), "/")
+		normalizedName := strings.Trim(strings.TrimPrefix(f.Name(), "/"), "/")
+		if normalizedPath == normalizedName {
 			continue
 		}
 
 		fi, err := resp.FileInfo()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("response fileinfo %q: %w", p, err)
 		}
 
 		fileInfos = append(fileInfos, fi)
@@ -74,7 +77,7 @@ func (f *file) Readdir(n int) ([]os.FileInfo, error) {
 }
 
 func (f *file) Stat() (os.FileInfo, error) {
-	// TODO use the cached
+	// TODO 使用已缓存的节点信息。
 	return f.node.root.Stat(context.Background(), f.Name())
 }
 

@@ -24,7 +24,7 @@ func init() {
 	cli.AddTo(App, &Mount{})
 }
 
-// Mount as fuse fs
+// Mount 将目标挂载为 FUSE 文件系统。
 type Mount struct {
 	cli.C
 	Otel otel.Otel

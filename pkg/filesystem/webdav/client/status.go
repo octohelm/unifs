@@ -31,7 +31,7 @@ func (s *Status) UnmarshalText(b []byte) error {
 	}
 	code, err := strconv.Atoi(parts[1])
 	if err != nil {
-		return fmt.Errorf("webdav: invalid HTTP status %d: failed to parse code: %v", s.Code, err)
+		return fmt.Errorf("webdav: invalid HTTP status %d: failed to parse code: %w", s.Code, err)
 	}
 
 	s.Code = code
@@ -44,7 +44,7 @@ func (s *Status) Err() error {
 		return nil
 	}
 
-	// TODO: handle 2xx, 3xx
+	// TODO 处理 2xx 和 3xx 状态码。
 	if s.Code != http.StatusOK {
 		return &HTTPError{Code: s.Code}
 	}

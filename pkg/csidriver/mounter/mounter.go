@@ -23,15 +23,15 @@ type Mounter interface {
 func NewMounter(ctx context.Context, backendStr string) (Mounter, error) {
 	backend, err := strfmt.ParseEndpoint(backendStr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("parse backend %q: %w", backendStr, err)
 	}
 
 	b := api.FileSystemBackend{}
 	b.Backend = *backend
 
-	// just for param check
+	// 仅用于提前校验后端参数。
 	if err := b.Init(ctx); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("init backend %q: %w", backend.SecurityString(), err)
 	}
 
 	return &mounter{
@@ -45,12 +45,12 @@ type mounter struct {
 
 func (m *mounter) Mount(mountPoint string) error {
 	if err := os.MkdirAll(mountPoint, os.ModeDir); err != nil {
-		return err
+		return fmt.Errorf("mkdir mount point %q: %w", mountPoint, err)
 	}
 
 	p, err := os.Executable()
 	if err != nil {
-		return err
+		return fmt.Errorf("resolve executable: %w", err)
 	}
 
 	args := []string{
@@ -66,7 +66,10 @@ func (m *mounter) Mount(mountPoint string) error {
 		return fmt.Errorf("FuseMount: %s: %w", append([]string{p}, args...), err)
 	}
 
-	return waitForMount(mountPoint, 10*time.Second)
+	if err := waitForMount(mountPoint, 10*time.Second); err != nil {
+		return fmt.Errorf("wait for mount %q: %w", mountPoint, err)
+	}
+	return nil
 }
 
 func FuseUnmount(path string) error {
@@ -74,14 +77,14 @@ func FuseUnmount(path string) error {
 		if os.IsNotExist(err) {
 			return nil
 		}
-		return err
+		return fmt.Errorf("stat mount path %q: %w", path, err)
 	}
 
 	m := mount.New("")
 
 	notMount, err := m.IsLikelyNotMountPoint(path)
 	if err != nil {
-		return err
+		return fmt.Errorf("check mount point %q: %w", path, err)
 	}
 
 	if notMount {
@@ -89,7 +92,7 @@ func FuseUnmount(path string) error {
 	}
 
 	if err := m.Unmount(path); err != nil {
-		return err
+		return fmt.Errorf("unmount %q: %w", path, err)
 	}
 	return nil
 }
@@ -100,7 +103,7 @@ func waitForMount(path string, timeout time.Duration) error {
 	for {
 		notMount, err := mount.New("").IsLikelyNotMountPoint(path)
 		if err != nil {
-			return err
+			return fmt.Errorf("check mount point %q: %w", path, err)
 		}
 		if !notMount {
 			return nil
@@ -116,7 +119,7 @@ func waitForMount(path string, timeout time.Duration) error {
 func FindFuseMountProcess(path string) (*os.Process, error) {
 	processes, err := ps.Processes()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("list processes: %w", err)
 	}
 	for _, p := range processes {
 		cmdLine, err := getCmdLine(p.Pid())
@@ -134,7 +137,7 @@ func getCmdLine(pid int) (string, error) {
 	cmdLineFile := fmt.Sprintf("/proc/%v/cmdline", pid)
 	cmdLine, err := os.ReadFile(cmdLineFile)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("read cmdline %q: %w", cmdLineFile, err)
 	}
 	return string(cmdLine), nil
 }

@@ -1,0 +1,26 @@
+unifs := "go tool unifs"
+
+fmt-cue:
+    cue fmt -s ./cuepkg/...
+
+test-fuse:
+    TEST_FUSE=1 \
+    	go test -v -failfast ./pkg/fuse/...
+
+mount-fs:
+    {{ unifs }} mount --delegate \
+    	--backend=file:///tmp/data /tmp/mnt
+
+mount-webdav:
+    {{ unifs }} mount \
+    	--backend=${UNIFS_WEBDAV_ENDPOINT} /tmp/mnt
+
+mount-s3:
+    {{ unifs }} mount \
+    	--backend=${UNIFS_S3_ENDPOINT} /tmp/mnt
+
+serve-webdav:
+    {{ unifs }} webdav --backend=file:///tmp/data
+
+serve-ftp:
+    {{ unifs }} ftp --backend=file:///tmp/data

@@ -2,15 +2,20 @@ package testutil
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	iofs "io/fs"
 	"os"
 	"path"
-	"reflect"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
 	"testing"
 
 	"golang.org/x/net/webdav"
+
+	. "github.com/octohelm/x/testing/v2"
 
 	"github.com/octohelm/unifs/pkg/filesystem"
 )
@@ -25,6 +30,16 @@ const (
 
 func TestFullFS(t *testing.T, fs filesystem.FileSystem) {
 	errStr := func(err error) string {
+		var pathErr *iofs.PathError
+		if errors.As(err, &pathErr) {
+			switch {
+			case os.IsExist(pathErr.Err):
+				return "errExist"
+			case os.IsNotExist(pathErr.Err):
+				return "errNotExist"
+			}
+		}
+
 		switch {
 		case os.IsExist(err):
 			return "errExist"
@@ -36,8 +51,8 @@ func TestFullFS(t *testing.T, fs filesystem.FileSystem) {
 		return "ok"
 	}
 
-	// The non-"find" non-"stat" test cases should change the file system state. The
-	// indentation of the "find"s and "stat"s helps distinguish such test cases.
+	// 非 "find"、非 "stat" 用例应改变文件系统状态；
+	// "find" 与 "stat" 的缩进用于区分这类用例。
 	testCases := []string{
 		"  stat / want dir",
 		"  stat /a want errNotExist",
@@ -178,42 +193,55 @@ func TestFullFS(t *testing.T, fs filesystem.FileSystem) {
 
 		tc = strings.TrimSpace(tc)
 		before, after, ok := strings.Cut(tc, " ")
-		if !ok {
-			t.Fatalf("test case #%d %q: invalid command", i, tc)
-		}
+		Must(t, func() error {
+			if !ok {
+				return fmt.Errorf("test case #%d %q: invalid command", i, tc)
+			}
+			return nil
+		})
 		op, arg := before, after
 
 		switch op {
 		default:
-			t.Fatalf("test case #%d %q: invalid operation %q", i, tc, op)
+			Must(t, func() error {
+				return fmt.Errorf("test case #%d %q: invalid operation %q", i, tc, op)
+			})
 
 		case "create":
 			parts := strings.Split(arg, " ")
-			if len(parts) != 4 || parts[2] != "want" {
-				t.Fatalf("test case #%d %q: invalid write", i, tc)
-			}
+			Must(t, func() error {
+				if len(parts) != 4 || parts[2] != "want" {
+					return fmt.Errorf("test case #%d %q: invalid write", i, tc)
+				}
+				return nil
+			})
 			f, opErr := fs.OpenFile(ctx, parts[0], os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o666)
-			if got := errStr(opErr); got != parts[3] {
-				t.Fatalf("test case #%d %q: OpenFile: got %q (%v), want %q", i, tc, got, opErr, parts[3])
-			}
+			Must(t, func() error {
+				if got := errStr(opErr); got != parts[3] {
+					return fmt.Errorf("test case #%d %q: OpenFile got %q (%v), want %q", i, tc, got, opErr, parts[3])
+				}
+				return nil
+			})
 			if f != nil {
-				if _, err := f.Write([]byte(parts[1])); err != nil {
-					t.Fatalf("test case #%d %q: ExportAsTar: %v", i, tc, err)
-				}
-				if err := f.Close(); err != nil {
-					t.Fatalf("test case #%d %q: Close: %v", i, tc, err)
-				}
+				Then(t, "文件内容写入并关闭成功",
+					ExpectMust(func() error {
+						_, err := f.Write([]byte(parts[1]))
+						return err
+					}),
+					ExpectMust(f.Close),
+				)
 			}
 		case "find":
 			got, err := find(ctx, nil, fs, "/")
-			if err != nil {
-				t.Fatalf("test case #%d %q: find: %v", i, tc, err)
-			}
+			Must(t, func() error { return err })
 			sort.Strings(got)
 			want := strings.Split(arg, " ")
-			if !reflect.DeepEqual(got, want) {
-				t.Fatalf("test case #%d %q:\ngot  %s\nwant %s", i, tc, got, want)
-			}
+			Must(t, func() error {
+				if !slices.Equal(got, want) {
+					return fmt.Errorf("test case #%d %q: got %v, want %v", i, tc, got, want)
+				}
+				return nil
+			})
 
 		case "copy__", "mk-dir", "move__", "rm-all", "stat":
 			nParts := 3
@@ -224,9 +252,12 @@ func TestFullFS(t *testing.T, fs filesystem.FileSystem) {
 				nParts = 5
 			}
 			parts := strings.Split(arg, " ")
-			if len(parts) != nParts {
-				t.Fatalf("test case #%d %q: invalid %s", i, tc, op)
-			}
+			Must(t, func() error {
+				if len(parts) != nParts {
+					return fmt.Errorf("test case #%d %q: invalid %s", i, tc, op)
+				}
+				return nil
+			})
 			got, opErr := "", error(nil)
 			switch op {
 			case "copy__":
@@ -252,12 +283,14 @@ func TestFullFS(t *testing.T, fs filesystem.FileSystem) {
 					}
 
 					if fileName == "/" {
-						// For a Dir FileSystem, the virtual file system root maps to a
-						// real file system name like "/tmp/webdav-test012345", which does
-						// not end with "/". We skip such cases.
+						// 对 Dir FileSystem，虚拟文件系统根目录会映射到
+						// "/tmp/webdav-test012345" 这类不以 "/" 结尾的真实路径；
+						// 这里跳过这类用例。
 					} else if statName := stat.Name(); path.Base(fileName) != statName {
-						t.Fatalf("test case #%d %q: file name %q inconsistent with stat name %q",
-							i, tc, fileName, statName)
+						Must(t, func() error {
+							return fmt.Errorf("test case #%d %q: file name %q inconsistent with stat name %q",
+								i, tc, fileName, statName)
+						})
 					}
 				}
 
@@ -266,12 +299,19 @@ func TestFullFS(t *testing.T, fs filesystem.FileSystem) {
 				got = errStr(opErr)
 			}
 
-			if parts[len(parts)-2] != "want" {
-				t.Fatalf("test case #%d %q: invalid %s", i, tc, op)
-			}
-			if want := parts[len(parts)-1]; got != want {
-				t.Fatalf("test case #%d %q: got %q (%v), want %q", i, tc, got, opErr, want)
-			}
+			Must(t, func() error {
+				if parts[len(parts)-2] != "want" {
+					return fmt.Errorf("test case #%d %q: invalid %s", i, tc, op)
+				}
+				return nil
+			})
+			want := parts[len(parts)-1]
+			Must(t, func() error {
+				if got != want {
+					return fmt.Errorf("test case #%d %q: got %q (%v), want %q", i, tc, got, opErr, want)
+				}
+				return nil
+			})
 		}
 	}
 }

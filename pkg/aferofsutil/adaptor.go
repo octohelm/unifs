@@ -2,6 +2,7 @@ package aferofsutil
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"io/fs"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"github.com/octohelm/unifs/pkg/filesystem"
 )
 
+// From 将 unifs FileSystem 适配为 afero.Fs 接口。
 func From(fs filesystem.FileSystem) afero.Fs {
 	return &adaptor{
 		fs: fs,
@@ -73,12 +75,12 @@ func (adaptor) Chtimes(name string, atime time.Time, mtime time.Time) error {
 func (a *adaptor) OpenFile(name string, flag int, perm os.FileMode) (afero.File, error) {
 	f, err := a.fs.OpenFile(context.Background(), name, flag, perm)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("open afero file %q: %w", name, err)
 	}
 
 	info, err := f.Stat()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("stat afero file %q: %w", name, err)
 	}
 
 	return &file{File: f, info: info}, nil
@@ -112,7 +114,7 @@ func (f *file) Name() string {
 func (f *file) Readdirnames(n int) ([]string, error) {
 	entries, err := f.File.Readdir(n)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("readdirnames %q: %w", f.Name(), err)
 	}
 
 	ret := make([]string, len(entries))
@@ -137,7 +139,7 @@ func (f *file) Truncate(size int64) error {
 }
 
 func (f *file) WriteString(s string) (ret int, err error) {
-	return io.WriteString(f, s)
+	return f.Write([]byte(s))
 }
 
 func notImplemented(op, path string) error {

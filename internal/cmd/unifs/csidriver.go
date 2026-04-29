@@ -11,7 +11,7 @@ func init() {
 	cli.AddTo(App, &CSIDriver{})
 }
 
-// Serve CSIDriver
+// CSIDriver 启动 CSI Driver 服务。
 type CSIDriver struct {
 	cli.C
 	Otel otel.Otel

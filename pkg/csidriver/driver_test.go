@@ -9,6 +9,7 @@ import (
 
 	"github.com/octohelm/x/logr"
 	"github.com/octohelm/x/logr/slog"
+	. "github.com/octohelm/x/testing/v2"
 )
 
 func TestDriver(t *testing.T) {
@@ -34,9 +35,9 @@ func newDriver(t *testing.T) *Driver {
 	driver := &Driver{}
 	driver.Endpoint = "unix://" + socket
 	driver.NodeID = "test-node"
-	if err := driver.Init(ctx); err != nil {
-		t.Fatal(err)
-	}
+	Must(t, func() error {
+		return driver.Init(ctx)
+	})
 	go func() {
 		_ = driver.Serve(ctx)
 	}()
