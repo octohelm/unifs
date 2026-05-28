@@ -8,9 +8,8 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/minio/minio-go/v7"
-	"github.com/minio/minio-go/v7/pkg/credentials"
 	courierhttpclient "github.com/octohelm/courier/pkg/courierhttp/client"
+	"github.com/rhnvrm/simples3"
 
 	"github.com/innoai-tech/infra/pkg/http/middleware"
 
@@ -44,50 +43,35 @@ func (c *Config) AsFileSystem(ctx context.Context) (filesystem.FileSystem, error
 		presignAs = u
 	}
 
-	signatureType := credentials.SignatureV4
-	if signatureTypeStr := c.Endpoint.Extra.Get("signatureType"); signatureTypeStr != "" {
-		switch signatureTypeStr {
-		case "v2":
-			signatureType = credentials.SignatureV2
-		}
+	region := c.Endpoint.Extra.Get("region")
+	if region == "" {
+		region = "us-east-1"
 	}
 
-	o := &minio.Options{
-		Creds:  credentials.NewStatic(c.Endpoint.Username, c.Endpoint.Password, "", signatureType),
-		Secure: !insecure,
-	}
-
+	client := newClient(region, c.Endpoint.Username, c.Endpoint.Password, endpointURL(c.Endpoint.Host(), insecure))
 	if c.Endpoint.Extra.Get("skipBucketCheck") == "true" {
-		o.Transport = &fakeBucket{
-			name:   c.Bucket(),
-			prefix: c.Prefix(),
-		}
-	}
-
-	client, err := minio.New(c.Endpoint.Host(), o)
-	if err != nil {
-		return nil, fmt.Errorf("new s3 client failed: %w", err)
-	}
-
-	ok, err := client.BucketExists(ctx, c.Endpoint.Base())
-	if err != nil {
-		return nil, fmt.Errorf("check bucket %q: %w", c.Endpoint.Base(), err)
-	}
-	if !ok {
-		_ = client.MakeBucket(ctx, c.Endpoint.Base(), minio.MakeBucketOptions{})
+		client.SetClient(&http.Client{
+			Transport: &fakeBucket{
+				name:   c.Bucket(),
+				prefix: c.Prefix(),
+			},
+		})
 	}
 
 	f := &fs{
-		s3Client: client,
-		bucket:   c.Bucket(),
-		prefix:   c.Prefix(),
+		s3Client:   client,
+		httpClient: client.Client,
+		bucket:     c.Bucket(),
+		prefix:     c.Prefix(),
+		region:     region,
+	}
+
+	if err := f.ensureBucket(ctx); err != nil {
+		return nil, fmt.Errorf("check bucket %q: %w", c.Endpoint.Base(), err)
 	}
 
 	if presignAs != nil {
-		clientForPresign, err := minio.New(presignAs.Host, o)
-		if err != nil {
-			return nil, fmt.Errorf("new presign s3 client %q: %w", presignAs.Host, err)
-		}
+		clientForPresign := newClient(region, c.Endpoint.Username, c.Endpoint.Password, presignEndpointURL(presignAs))
 
 		presignAs.Host = c.Bucket() + "." + presignAs.Host
 
@@ -98,6 +82,28 @@ func (c *Config) AsFileSystem(ctx context.Context) (filesystem.FileSystem, error
 	c.fs = f
 
 	return c.fs, nil
+}
+
+func newClient(region string, accessKey string, secretKey string, endpoint string) *simples3.S3 {
+	client := simples3.New(region, accessKey, secretKey)
+	client.SetEndpoint(endpoint)
+	return client
+}
+
+func endpointURL(host string, insecure bool) string {
+	scheme := "https"
+	if insecure {
+		scheme = "http"
+	}
+	return scheme + "://" + host
+}
+
+func presignEndpointURL(u *url.URL) string {
+	scheme := u.Scheme
+	if scheme == "" {
+		scheme = "https"
+	}
+	return scheme + "://" + u.Host
 }
 
 func (c *Config) Bucket() string {

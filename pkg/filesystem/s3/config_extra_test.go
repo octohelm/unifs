@@ -26,6 +26,8 @@ func TestConfigBranches(t *testing.T) {
 		Expect(conf.Bucket(), Equal("bucket")),
 		Expect(conf.Prefix(), Equal("/prefix")),
 		Expect((&Config{Endpoint: strfmt.Endpoint{Path: "/bucket"}}).Prefix(), Equal("/")),
+		Expect(endpointURL("example.com", true), Equal("http://example.com")),
+		Expect(endpointURL("example.com", false), Equal("https://example.com")),
 	)
 
 	Then(t, "非法 presignAs 返回错误",
@@ -46,6 +48,16 @@ func regexpMust(pattern string) *regexp.Regexp {
 	return regexp.MustCompile(pattern)
 }
 
+func TestPresignEndpointURL(t *testing.T) {
+	u := MustValue(t, func() (*url.URL, error) {
+		return url.Parse("http://example.com")
+	})
+
+	Then(t, "presign endpoint 保留显式协议",
+		Expect(presignEndpointURL(u), Equal("http://example.com")),
+	)
+}
+
 func TestFakeBucket(t *testing.T) {
 	rt := &fakeBucket{name: "bucket", prefix: "/prefix"}
 	req := MustValue(t, func() (*http.Request, error) {
@@ -61,7 +73,7 @@ func TestFakeBucket(t *testing.T) {
 		return rt.RoundTrip(prefixReq)
 	})
 
-	Then(t, "fakeBucket 返回 bucket 存在",
+	Then(t, "fakeBucket 返回 bucket 和 prefix 存在",
 		Expect(resp.StatusCode, Equal(http.StatusOK)),
 		Expect(prefixResp.StatusCode, Equal(http.StatusOK)),
 	)
