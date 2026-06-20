@@ -11,12 +11,14 @@ import (
 	"path"
 	"strings"
 	"sync"
+	"time"
 
+	"github.com/minio/minio-go/v7"
 	"github.com/octohelm/courier/pkg/courierhttp"
-	"github.com/rhnvrm/simples3"
 
 	"github.com/octohelm/unifs/pkg/filesystem"
 	"github.com/octohelm/unifs/pkg/filesystem/fsutil"
+	"github.com/octohelm/unifs/pkg/units"
 )
 
 func openDir(ctx context.Context, fs *fs, name string) (filesystem.File, error) {
@@ -31,7 +33,8 @@ func openDir(ctx context.Context, fs *fs, name string) (filesystem.File, error) 
 				}
 			}
 
-			if err := fs.putObject(ctx, path.Join(name, dirHolder), bytes.NewReader(nil), 0, nil); err != nil {
+			_, err := fs.s3Client.PutObject(ctx, fs.bucket, fs.path(path.Join(name, dirHolder)), bytes.NewBuffer(nil), 0, minio.PutObjectOptions{})
+			if err != nil {
 				return nil, fmt.Errorf("put s3 dir holder %q: %w", path.Join(name, dirHolder), err)
 			}
 			return dir, nil
@@ -68,7 +71,7 @@ func openFileForWrite(ctx context.Context, fs *fs, name string, flags int) (file
 
 	// 按配置将写入请求封装为预签名地址。
 	if presignAs, ok := fs.presignForWrite(); ok {
-		u, err := fs.presignedURL(ctx, fs.presignClient(), http.MethodPut, fs.path(name), nil)
+		u, err := fs.presignClient().PresignedPutObject(ctx, fs.bucket, fs.path(name), 5*time.Minute)
 		if err != nil {
 			return nil, fmt.Errorf("presign put object %q: %w", name, err)
 		}
@@ -88,20 +91,19 @@ func openFileForWrite(ctx context.Context, fs *fs, name string, flags int) (file
 func openFileForRead(ctx context.Context, fs *fs, name string, flags int) (filesystem.File, error) {
 	f := &file{name: name, flags: flags, ctx: ctx, fs: fs}
 
-	info, err := fs.Stat(ctx, name)
-	if err != nil {
+	if _, err := fs.Stat(ctx, name); err != nil {
 		return nil, fmt.Errorf("stat s3 object %q: %w", name, err)
 	}
 
-	f.object = &s3Object{
-		ctx:  ctx,
-		fs:   fs,
-		key:  fs.path(name),
-		size: info.Size(),
+	o, err := fs.s3Client.GetObject(ctx, fs.bucket, fs.path(name), minio.GetObjectOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("get s3 object %q: %w", name, err)
 	}
 
+	f.object = o
+
 	if presignAs, ok := fs.presignForRead(); ok {
-		u, err := fs.presignedURL(ctx, fs.presignClient(), http.MethodGet, fs.path(name), nil)
+		u, err := fs.presignClient().PresignedGetObject(ctx, fs.bucket, fs.path(name), 5*time.Minute, nil)
 		if err != nil {
 			return nil, fmt.Errorf("presign get object %q: %w", name, err)
 		}
@@ -142,12 +144,12 @@ type file struct {
 
 	// 写入对象
 	writeable     bool
+	pw            *io.PipeWriter
+	errCh         chan error
 	writeInitOnce sync.Once
-	writeInitErr  error
-	writeFile     *os.File
 
 	// 读取对象
-	object *s3Object
+	object *minio.Object
 }
 
 func (f *file) Name() string { return f.name }
@@ -162,14 +164,9 @@ func (f *file) Readdir(n int) ([]os.FileInfo, error) {
 		name += "/"
 	}
 
-	objects, prefixes, err := f.fs.listObjects(f.ctx, simples3.ListInput{
-		Bucket:    f.fs.bucket,
-		Prefix:    name,
-		Delimiter: "/",
+	objCh := f.fs.s3Client.ListObjects(context.Background(), f.fs.bucket, minio.ListObjectsOptions{
+		Prefix: name,
 	})
-	if err != nil {
-		return nil, fmt.Errorf("list s3 dir %q: %w", f.Name(), err)
-	}
 
 	var fileInfos []os.FileInfo
 
@@ -179,35 +176,33 @@ func (f *file) Readdir(n int) ([]os.FileInfo, error) {
 
 	idx := 0
 
-	for _, obj := range objects {
+	for obj := range objCh {
+		if obj.Err != nil {
+			return nil, fmt.Errorf("list s3 dir %q: %w", f.Name(), obj.Err)
+		}
+
 		if strings.HasSuffix(obj.Key, dirHolder) {
 			continue
 		}
 
-		fileInfos = append(fileInfos, fsutil.NewFileInfo(
-			path.Base("/"+obj.Key),
-			obj.Size,
-			parseS3Time(obj.LastModified),
-		))
+		var fi filesystem.FileInfo
+
+		if strings.HasSuffix(obj.Key, "/") {
+			fi = fsutil.NewDirFileInfo(path.Base("/" + obj.Key))
+		} else {
+			fi = fsutil.NewFileInfo(
+				path.Base("/"+obj.Key),
+				obj.Size,
+				obj.LastModified,
+			)
+		}
+
+		fileInfos = append(fileInfos, fi)
 		idx++
 
-		if n > 0 && idx >= n {
+		if n > 0 && idx > n {
 			break
 		}
-	}
-
-	for _, prefix := range prefixes {
-		if n > 0 && idx >= n {
-			break
-		}
-
-		name := path.Base(strings.TrimSuffix(prefix, "/"))
-		if name == "" || name == "." || name == dirHolder {
-			continue
-		}
-
-		fileInfos = append(fileInfos, fsutil.NewDirFileInfo(name))
-		idx++
 	}
 
 	return fileInfos, nil
@@ -235,33 +230,56 @@ func (f *file) Write(p []byte) (int, error) {
 	}
 
 	f.writeInitOnce.Do(func() {
-		f.writeFile, f.writeInitErr = os.CreateTemp("", "unifs-s3-*")
-	})
-	if f.writeInitErr != nil {
-		return -1, fmt.Errorf("create s3 write temp file %q: %w", f.Name(), f.writeInitErr)
-	}
+		pr, pw := io.Pipe()
 
-	return f.writeFile.Write(p)
+		f.errCh = make(chan error, 1)
+		f.pw = pw
+
+		putObjectOptions := minio.PutObjectOptions{}
+
+		metadata := filesystem.MetadataFromContext(f.ctx)
+		if v := metadata.Get("Content-Type"); v != "" {
+			putObjectOptions.ContentType = v
+		}
+		if v := metadata.Get("Cache-Control"); v != "" {
+			putObjectOptions.CacheControl = v
+		}
+
+		go func() {
+			defer pr.Close()
+
+			var err error
+			defer func() {
+				f.errCh <- err
+			}()
+
+			c := context.WithoutCancel(f.ctx)
+
+			if f.flags&os.O_CREATE != 0 {
+				// 创建新文件时写入 0x00 作为占位符。
+				_, err = f.fs.s3Client.PutObject(c, f.fs.bucket, f.fs.path(f.name), bytes.NewBuffer([]byte{0x00}), 1, putObjectOptions)
+				if err != nil {
+					return
+				}
+			}
+
+			// https://github.com/minio/minio-go/issues?q=PartSize%20
+			putObjectOptions.PartSize = uint64(5 * units.MiB)
+
+			_, err = f.fs.s3Client.PutObject(c, f.fs.bucket, f.fs.path(f.name), pr, -1, putObjectOptions)
+			return
+		}()
+	})
+
+	return f.pw.Write(p)
 }
 
 func (f *file) Close() error {
-	if f.writeFile != nil {
-		name := f.writeFile.Name()
-		defer func() {
-			_ = os.Remove(name)
-		}()
-		defer f.writeFile.Close()
-
-		if _, err := f.writeFile.Seek(0, io.SeekStart); err != nil {
-			return fmt.Errorf("seek s3 write temp file %q: %w", f.Name(), err)
+	if f.pw != nil {
+		if err := f.pw.Close(); err != nil {
+			return fmt.Errorf("close s3 write pipe %q: %w", f.Name(), err)
 		}
-
-		info, err := f.writeFile.Stat()
-		if err != nil {
-			return fmt.Errorf("stat s3 write temp file %q: %w", f.Name(), err)
-		}
-
-		if err := f.fs.putObject(context.WithoutCancel(f.ctx), f.name, f.writeFile, info.Size(), uploadHeaders(f.ctx)); err != nil {
+		if err := <-f.errCh; err != nil {
 			return fmt.Errorf("put s3 object %q: %w", f.Name(), err)
 		}
 		return nil
@@ -274,16 +292,4 @@ func (f *file) Close() error {
 	}
 
 	return nil
-}
-
-func uploadHeaders(ctx context.Context) http.Header {
-	headers := http.Header{}
-	metadata := filesystem.MetadataFromContext(ctx)
-	if v := metadata.Get("Content-Type"); v != "" {
-		headers.Set("Content-Type", v)
-	}
-	if v := metadata.Get("Cache-Control"); v != "" {
-		headers.Set("Cache-Control", v)
-	}
-	return headers
 }

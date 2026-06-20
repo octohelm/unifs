@@ -2,31 +2,27 @@ package s3
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"os"
 	"path"
-	"strconv"
 	"strings"
-	"time"
 
-	"github.com/rhnvrm/simples3"
+	"github.com/minio/minio-go/v7"
 
 	"github.com/octohelm/unifs/pkg/filesystem"
 	"github.com/octohelm/unifs/pkg/filesystem/fsutil"
 )
 
 type fs struct {
-	s3Client           *simples3.S3
-	s3ClientForPresign *simples3.S3
-	httpClient         *http.Client
+	s3Client           *minio.Client
+	s3ClientForPresign *minio.Client
 	presignAs          *url.URL
 
 	bucket string
 	prefix string
-	region string
 }
 
 func (fsys *fs) Mkdir(ctx context.Context, name string, perm os.FileMode) error {
@@ -48,9 +44,13 @@ func (fsys *fs) Mkdir(ctx context.Context, name string, perm os.FileMode) error 
 }
 
 func (fsys *fs) OpenFile(ctx context.Context, name string, flag int, perm os.FileMode) (filesystem.File, error) {
-	// S3 不支持追加写。
+	// S3 不支持追加写。理论上可以通过以下步骤模拟：
+	// - 将现有文件复制到新位置，例如 $file.previous
+	// - 写入新文件，并把旧文件内容流式写入其中
+	// - 写入需要追加的数据
+	// 该方式网络开销很高，大量使用会导致性能很差。
 	if flag&os.O_APPEND != 0 {
-		return nil, fmt.Errorf("file append is not allow: %w", os.ErrPermission)
+		return nil, os.ErrPermission
 	}
 
 	if flag&os.O_CREATE != 0 {
@@ -122,12 +122,17 @@ func (fsys *fs) Rename(ctx context.Context, oldName, newName string) error {
 		return nil
 	}
 
-	_, err = fsys.s3Client.CopyObject(simples3.CopyObjectInput{
-		SourceBucket: fsys.bucket,
-		SourceKey:    fsys.path(oldName),
-		DestBucket:   fsys.bucket,
-		DestKey:      fsys.path(newName),
-	})
+	_, err = fsys.s3Client.CopyObject(
+		ctx,
+		minio.CopyDestOptions{
+			Bucket: fsys.bucket,
+			Object: fsys.path(newName),
+		},
+		minio.CopySrcOptions{
+			Bucket: fsys.bucket,
+			Object: fsys.path(oldName),
+		},
+	)
 	if err != nil {
 		return fmt.Errorf("copy s3 object %q to %q: %w", oldName, newName, err)
 	}
@@ -177,17 +182,15 @@ func (fsys *fs) RemoveAll(ctx context.Context, name string) error {
 
 func (fsys *fs) forceRemove(ctx context.Context, name string, isDir bool) error {
 	if isDir {
-		if err := fsys.s3Client.FileDelete(simples3.DeleteInput{
-			Bucket:    fsys.bucket,
-			ObjectKey: fsys.path(path.Join(name, dirHolder)),
+		if err := fsys.s3Client.RemoveObject(ctx, fsys.bucket, fsys.path(path.Join(name, dirHolder)), minio.RemoveObjectOptions{
+			ForceDelete: true,
 		}); err != nil {
 			return fmt.Errorf("remove s3 dir holder %q: %w", path.Join(name, dirHolder), err)
 		}
 	}
 
-	if err := fsys.s3Client.FileDelete(simples3.DeleteInput{
-		Bucket:    fsys.bucket,
-		ObjectKey: fsys.path(name),
+	if err := fsys.s3Client.RemoveObject(ctx, fsys.bucket, fsys.path(name), minio.RemoveObjectOptions{
+		ForceDelete: true,
 	}); err != nil {
 		return fmt.Errorf("remove s3 object %q: %w", name, err)
 	}
@@ -206,47 +209,39 @@ func (fsys *fs) Stat(ctx context.Context, name string) (os.FileInfo, error) {
 		return fsutil.NewDirFileInfo("/"), nil
 	}
 
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
-
-	info, err := fsys.s3Client.FileDetails(simples3.DetailsInput{
-		Bucket:    fsys.bucket,
-		ObjectKey: fsys.path(name),
-	})
+	info, err := fsys.s3Client.StatObject(ctx, fsys.bucket, fsys.path(name), minio.StatObjectOptions{})
 	if err != nil {
-		if isS3NotFound(err) {
-			return fsys.statDirectory(ctx, name)
+		var errorResponse minio.ErrorResponse
+
+		if errors.As(err, &errorResponse) {
+			if errorResponse.StatusCode == http.StatusNotFound {
+				return fsys.statDirectory(ctx, name)
+			}
 		}
 
 		return nil, &os.PathError{
 			Op:   "stat",
 			Path: name,
-			Err:  os.ErrNotExist,
+			Err:  err,
 		}
-	}
-
-	size, err := strconv.ParseInt(info.ContentLength, 10, 64)
-	if err != nil {
-		return nil, fmt.Errorf("parse s3 object size %q: %w", info.ContentLength, err)
 	}
 
 	return fsutil.NewFileInfo(
 		path.Base(name),
-		size,
-		parseS3Time(info.LastModified),
+		info.Size,
+		info.LastModified,
 	), nil
 }
 
 func (fsys *fs) statDirectory(ctx context.Context, name string) (os.FileInfo, error) {
 	nameClean := path.Clean(name)
 
-	objects, prefixes, err := fsys.listObjects(ctx, simples3.ListInput{
-		Bucket:  fsys.bucket,
+	objects := fsys.s3Client.ListObjects(ctx, fsys.bucket, minio.ListObjectsOptions{
 		Prefix:  fsys.path(nameClean),
 		MaxKeys: 1,
 	})
-	if err == nil && len(objects)+len(prefixes) > 0 {
+
+	for range objects {
 		return fsutil.NewDirFileInfo(path.Base(name)), nil
 	}
 
@@ -257,7 +252,7 @@ func (fsys *fs) statDirectory(ctx context.Context, name string) (os.FileInfo, er
 	}
 }
 
-func (fsys *fs) presignClient() *simples3.S3 {
+func (fsys *fs) presignClient() *minio.Client {
 	if presignAs := fsys.presignAs; presignAs != nil {
 
 		if presignAs.User != nil {
@@ -269,142 +264,6 @@ func (fsys *fs) presignClient() *simples3.S3 {
 	}
 
 	return fsys.s3Client
-}
-
-func (fsys *fs) ensureBucket(ctx context.Context) error {
-	resp, err := fsys.doPresignedRequest(ctx, fsys.s3Client, http.MethodHead, "", nil, nil, 0)
-	if err != nil {
-		return err
-	}
-	defer closeResponse(resp)
-
-	switch resp.StatusCode {
-	case http.StatusOK:
-		return nil
-	case http.StatusNotFound:
-		_, _ = fsys.s3Client.CreateBucket(simples3.CreateBucketInput{
-			Bucket: fsys.bucket,
-			Region: fsys.region,
-		})
-		return nil
-	default:
-		return fmt.Errorf("status code: %s", resp.Status)
-	}
-}
-
-func (fsys *fs) listObjects(ctx context.Context, input simples3.ListInput) ([]simples3.Object, []string, error) {
-	var objects []simples3.Object
-	var prefixes []string
-
-	for {
-		if err := ctx.Err(); err != nil {
-			return nil, nil, err
-		}
-
-		resp, err := fsys.s3Client.List(input)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		objects = append(objects, resp.Objects...)
-		prefixes = append(prefixes, resp.CommonPrefixes...)
-
-		if input.MaxKeys > 0 && int64(len(objects)+len(prefixes)) >= input.MaxKeys {
-			return objects, prefixes, nil
-		}
-		if !resp.IsTruncated || resp.NextContinuationToken == "" {
-			return objects, prefixes, nil
-		}
-
-		input.ContinuationToken = resp.NextContinuationToken
-	}
-}
-
-func (fsys *fs) presignedURL(ctx context.Context, client *simples3.S3, method string, key string, headers http.Header) (*url.URL, error) {
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
-
-	extraHeaders := map[string]string{}
-	for name, values := range headers {
-		if len(values) > 0 {
-			extraHeaders[name] = values[0]
-		}
-	}
-
-	rawURL := client.GeneratePresignedURL(simples3.PresignedInput{
-		Bucket:        fsys.bucket,
-		ObjectKey:     key,
-		Method:        method,
-		Timestamp:     time.Now(),
-		ExpirySeconds: 5 * 60,
-		ExtraHeaders:  extraHeaders,
-	})
-	if rawURL == "" {
-		return nil, fmt.Errorf("generate presigned %s url for %q failed", method, key)
-	}
-
-	u, err := url.Parse(rawURL)
-	if err != nil {
-		return nil, fmt.Errorf("parse presigned %s url for %q: %w", method, key, err)
-	}
-	return u, nil
-}
-
-func (fsys *fs) doPresignedRequest(ctx context.Context, client *simples3.S3, method string, key string, headers http.Header, body io.Reader, contentLength int64) (*http.Response, error) {
-	u, err := fsys.presignedURL(ctx, client, method, key, headers)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequestWithContext(ctx, method, u.String(), body)
-	if err != nil {
-		return nil, err
-	}
-	if contentLength >= 0 {
-		req.ContentLength = contentLength
-	}
-	req.Header = headers.Clone()
-
-	return fsys.client().Do(req)
-}
-
-func (fsys *fs) client() *http.Client {
-	if fsys.httpClient != nil {
-		return fsys.httpClient
-	}
-	return http.DefaultClient
-}
-
-func isS3NotFound(err error) bool {
-	if err == nil {
-		return false
-	}
-	s := err.Error()
-	return strings.Contains(s, "status code: 404") ||
-		strings.Contains(s, "404 Not Found") ||
-		strings.Contains(s, "NoSuchKey") ||
-		strings.Contains(s, "NoSuchBucket")
-}
-
-func parseS3Time(v string) time.Time {
-	t, err := http.ParseTime(v)
-	if err == nil {
-		return t
-	}
-	t, err = time.Parse(time.RFC3339, v)
-	if err == nil {
-		return t
-	}
-	return time.Time{}
-}
-
-func closeResponse(resp *http.Response) {
-	if resp == nil || resp.Body == nil {
-		return
-	}
-	defer resp.Body.Close()
-	_, _ = io.Copy(io.Discard, resp.Body)
 }
 
 func (fsys *fs) presignForWrite() (*url.URL, bool) {

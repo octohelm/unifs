@@ -75,7 +75,7 @@ func newFakeS3FS(t *testing.T, opts ...func(c *Config)) filesystem.FileSystem {
 
 	if e == "" {
 		svc := fakeS3Server(t)
-		e = fmt.Sprintf("%s/test?insecure=true", svc.URL)
+		e = svc.URL + fmt.Sprintf("/test?insecure=true")
 	}
 
 	endpoint := MustValue(t, func() (*strfmt.Endpoint, error) {

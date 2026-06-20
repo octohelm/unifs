@@ -42,18 +42,19 @@ func (f *subFS) shorten(name string) (rel string, ok bool) {
 
 // fixErr 通过去掉 f.dir 缩短 PathError 中报告的路径。
 func (f *subFS) fixErr(err error) error {
-	if e, ok := errors.AsType[*fs.PathError](err); ok {
+	var e *fs.PathError
+	if errors.As(err, &e) {
 		if short, ok := f.shorten(e.Path); ok {
 			e.Path = short
-			fmt.Println(e.Path)
-			return e
 		}
 	}
 	return err
 }
 
 func (f *subFS) fullName(op, name string) (string, error) {
-	name = strings.TrimPrefix(name, "/")
+	if strings.HasPrefix(name, "/") {
+		name = name[1:]
+	}
 	if name == "" {
 		name = "."
 	}
@@ -115,11 +116,11 @@ func (f *subFS) Rename(ctx context.Context, oldName, newName string) error {
 func (f *subFS) Stat(ctx context.Context, name string) (os.FileInfo, error) {
 	fullName, err := f.fullName("stat", name)
 	if err != nil {
-		return nil, fmt.Errorf("resolve sub path %q: %w", fullName, err)
+		return nil, fmt.Errorf("resolve stat sub path %q: %w", name, err)
 	}
 	info, err := f.source.Stat(ctx, fullName)
 	if err != nil {
-		return nil, fmt.Errorf("stat path %q: %w", fullName, f.fixErr(err))
+		return nil, fmt.Errorf("stat sub path %q: %w", name, f.fixErr(err))
 	}
 	return info, nil
 }
