@@ -58,12 +58,19 @@ UniFS 不是通用对象存储 SDK。除非某个包明确暴露协议能力，�
 ```
 ftp://<username>:<password>@<host>[<base_path>]
 
+ftps://<username>:<password>@<host>[<base_path>][?tlsMinVersion=1.2&tlsMaxVersion=1.2]
+
 webdav://<username>:<password>@<host>[<base_path>][?insecure=true]
 
 s3://<access_key_id>:<access_key_secret>@<host>/<bucket>[<base_path>][?insecure=true]
 
 file://<absolute_path>
 ```
+
+FTPS 端点支持 `tlsMinVersion` 和 `tlsMaxVersion`，分别设置 TLS 协议的最小、最大版本。
+参数采用 `1.x` 数字格式，例如 `1.0`、`1.2`、`1.3`；只校验格式和版本编号是否可表示，不使用版本白名单，实际协议支持由 Go TLS 实现决定。
+两个参数均设为 `1.2` 可固定使用 TLS 1.2；只设置一侧时，另一侧保留 Go 默认值；均未设置时保留原有默认行为。
+显式空值、非法格式或最小版本大于最大版本会返回配置错误。版本参数只对 `ftps://` 生效。
 
 ## 运行入口
 
