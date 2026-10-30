@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -80,6 +81,25 @@ func (c *Config) Conn(ctx context.Context, args ...any) (Conn, error) {
 		if c.Endpoint.Scheme == "ftps" {
 			p.TLSConfig = &tls.Config{}
 
+			for _, bound := range []struct {
+				name  string
+				value *uint16
+			}{
+				{name: "tlsMinVersion", value: &p.TLSConfig.MinVersion},
+				{name: "tlsMaxVersion", value: &p.TLSConfig.MaxVersion},
+			} {
+				if c.Endpoint.Extra.Has(bound.name) {
+					version, err := parseTLSVersion(c.Endpoint.Extra.Get(bound.name))
+					if err != nil {
+						return nil, fmt.Errorf("解析 FTP %s: %w", bound.name, err)
+					}
+					*bound.value = version
+				}
+			}
+			if p.TLSConfig.MinVersion != 0 && p.TLSConfig.MaxVersion != 0 && p.TLSConfig.MinVersion > p.TLSConfig.MaxVersion {
+				return nil, fmt.Errorf("FTP tlsMinVersion 不能大于 tlsMaxVersion")
+			}
+
 			if t := c.Endpoint.Extra.Get("insecureSkipVerify"); t != "" {
 				d, err := strconv.ParseBool(t)
 				if err != nil {
@@ -101,4 +121,22 @@ func (c *Config) Conn(ctx context.Context, args ...any) (Conn, error) {
 	}
 
 	return c.p.Conn(ctx, args...)
+}
+
+// parseTLSVersion 将 1.x 格式转换为 TLS 版本编号，不限定当前 Go 支持的版本。
+func parseTLSVersion(value string) (uint16, error) {
+	minor, ok := strings.CutPrefix(value, "1.")
+	if !ok || minor == "" {
+		return 0, fmt.Errorf("TLS 版本 %q 格式无效，应为 1.x", value)
+	}
+	for _, digit := range minor {
+		if digit < '0' || digit > '9' {
+			return 0, fmt.Errorf("TLS 版本 %q 格式无效，应为 1.x", value)
+		}
+	}
+	n, err := strconv.ParseUint(minor, 10, 16)
+	if err != nil || n > (1<<16-1)-uint64(tls.VersionTLS10) {
+		return 0, fmt.Errorf("TLS 版本 %q 超出 uint16 可表示的范围", value)
+	}
+	return tls.VersionTLS10 + uint16(n), nil
 }
